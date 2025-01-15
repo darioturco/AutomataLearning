@@ -98,9 +98,8 @@ class Trainer:
 
 
 class Learner:
-  def __init__(self, target_transducer, budget):
-    self.target_transducer = target_transducer
-    self.budget = budget
+  def __init__(self):
+    self.target_transducer = None
     self.separate_char = "2"  ### Cambiar
     self.max_length_sec = 10 ### Cambiar
     self.xs = []
@@ -112,7 +111,7 @@ class Learner:
 
   def equivalence_query(self, transducer, t=10):
     to_test = []
-    for tt in range(t):
+    for _ in range(t):
       test = self.generate_input(random.randint(1, self.max_length_sec))
       to_test.append(test)
       if self.target_transducer.run_fsm(test) != transducer.run_fsm(test):
@@ -140,12 +139,13 @@ class Learner:
   def generate_xy(self):
     return "".join(self.xs), "".join(self.ys)
 
-  def learn(self, run_n=1000, verbose=0):
+  def learn(self, target_transducer, budget, run_n=1000, verbose=0):
+    self.target_transducer = target_transducer
     self.xs = [self.generate_input(random.randint(1, self.max_length_sec))]
     self.ys = [self.target_transducer.run_fsm(self.xs[0])]
 
 
-    for i in range(self.budget):
+    for i in range(budget):
       keys = self.generate_keys(run_n)
       x_test, y_test = self.generate_xy()
       T, R, s0 = self.train_fsm(keys, x_test, y_test, self.target_transducer.N_CHAR, self.target_transducer.STATE_MAX)
