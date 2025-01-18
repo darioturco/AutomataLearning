@@ -4,119 +4,236 @@ import matplotlib.pyplot as plt
 import jax
 import jax.numpy as jnp
 
-from src.utils import decode_fsm, entropy, prepare_str, FSM, Params, Stats, TrainState, TrainResult
+from src.utils import decode_fsm, entropy, prepare_str, FSM, Params, Stats, TrainState, TrainResult, get_separate_char
 
-class TensorTransducer:
-  def __init__(self, T, R, s0, alphabet, max_state=8):
-    self.fsm = decode_fsm(Params(T, R, s0), hard=True)
-    self.alphabet = alphabet
-    self.alphabet_ext = alphabet + ["2"]
-    self.CHAR_N = len(alphabet) + 1
-    self.STATE_MAX = max_state
-    self.char_dict = {0: '0', 1: '1', 2: '2'} ### Cambiar
+class Transducer:
+	def __init__(self, alphabet, max_state):
+		self.alphabet = alphabet
+		self.separate_char = get_separate_char(alphabet)
+		self.alphabet_ext = alphabet + [self.separate_char]
+		self.CHAR_N = len(alphabet) + 1
+		self.STATE_MAX = max_state
+		
 
-  @staticmethod
-  def run_fsm_with_values(inputs, R, T, s0):
-    def f(s, x):
-      y  = jnp.einsum('x,s,xsy->y', x, s, R)
-      s1 = jnp.einsum('x,s,xst->t', x, s, T)
-      return s1, (y, s1)
+	def error_square(self, xs, ys0, entropy_weight=0):
+		error = 0.0
+		for x, y0 in zip(xs, ys0):
+			y, s = self(x)
+			y0 = prepare_str(y0, self.alphabet_ext)
+			error += jnp.square(y-y0).sum()
+			error += 0.0 if s is None else entropy(s.mean(0)) * entropy_weight
+		return error
+		
 
-    _, (outputs, states) = jax.lax.scan(f, s0, inputs)
-    return outputs, jnp.vstack([s0, states])
+class TensorTransducer(Transducer):
+	def __init__(self, T, R, s0, alphabet, max_state=8):
+		super().__init__(alphabet, max_state)
+		self.fsm = decode_fsm(Params(T, R, s0), hard=True)
+		
 
-  def __call__(self, inputs):
-    inputs = prepare_str(inputs, self.CHAR_N)
-    return TensorTransducer.run_fsm_with_values(inputs, self.fsm.R, self.fsm.T, self.fsm.s0)
+	@staticmethod
+	def run_fsm_with_values(inputs, R, T, s0):
+		def f(s, x):
+			y  = jnp.einsum('x,s,xsy->y', x, s, R)
+			s1 = jnp.einsum('x,s,xst->t', x, s, T)
+			return s1, (y, s1)
 
-  def run_fsm(self, x):
-    y, _ = self(x)
-    index = y.argmax(axis=1)
-    return "".join([self.char_dict[i] for i in index.tolist()][:-1] + ['2'])
-  
-  def show_fsm_story(xx, yy, ss):
-    G = Digraph(graph_attr={'rankdir':'LR'}, node_attr={'shape':'circle'})
-    G.node(ss[0], penwidth='3px')
-    edges = set(zip(xx, yy, ss[:-1], ss[1:]))
-    for x, y, a, b in edges:
-      G.edge(a, b, '%s/%s'%(x, y))
-    if len(set(ss)) > 2:
-      G.engine = 'circo'
-    return G
+		_, (outputs, states) = jax.lax.scan(f, s0, inputs)
+		return outputs, jnp.vstack([s0, states])
 
-  def print(self):
-    print(f"T = {self.fsm.T}")
-    print(f"R = {self.fsm.R}")
-    print(f"Initial State = {self.fsm.s0}")
+	def __call__(self, inputs):
+		inputs = prepare_str(inputs, self.alphabet_ext)
+		return TensorTransducer.run_fsm_with_values(inputs, self.fsm.R, self.fsm.T, self.fsm.s0)
 
-  def get_edges_out(self, n):
-    edges = []
-    for i in range(self.fsm.R.shape[0]):
-      for j in range(self.fsm.R.shape[2]):
-        if self.fsm.R[i][n][j] > 0.1:
-          edges.append((self.alphabet_ext[i], self.alphabet_ext[j]))
-    return edges
+	def run_fsm(self, x):
+		y, _ = self(x)
+		index = y.argmax(axis=1)
+		return "".join([self.char_dict[i] for i in index.tolist()][:-1] + ['2']) ### Cambiar el caracter de separacion
 
-  def show(self, title="", verbose=0):
-    if verbose:
-      self.print()
-    
-    edges = {}
-    for s1 in range(self.fsm.T.shape[1]):
-      for s2 in range(self.fsm.T.shape[1]):
-        for i in range(self.fsm.T.shape[0]):
-          for o in range(self.fsm.T.shape[0]):
-            if self.fsm.T[i][s1][s2] > 0.01 and self.fsm.R[i][s1][o] > 0.01:
-              if (s1, s2) in edges:
-                edges[(s1, s2)].append(f"\n{self.alphabet_ext[i]}/{self.alphabet_ext[o]}")
-              else:
-                edges[(s1, s2)] = [f"{self.alphabet_ext[i]}/{self.alphabet_ext[o]}"]
+	def show_fsm_story(xx, yy, ss):
+		G = Digraph(graph_attr={'rankdir':'LR'}, node_attr={'shape':'circle'})
+		G.node(ss[0], penwidth='3px')
+		edges = set(zip(xx, yy, ss[:-1], ss[1:]))
 
-    # Create a directed graph
-    G = nx.DiGraph()
+		for x, y, a, b in edges:
+			G.edge(a, b, '%s/%s'%(x, y))
+			if len(set(ss)) > 2:
+				G.engine = 'circo'
+		return G
 
-    initial_state = int(jnp.argmax(self.fsm.s0))
-    for (s1, s2), edge in edges.items():
-      G.add_node(s1)
-      G.add_node(s2)
+	def print(self):
+		print(f"T = {self.fsm.T}")
+		print(f"R = {self.fsm.R}")
+		print(f"Initial State = {self.fsm.s0}")
 
-      G.add_edge(s1, s2, label="".join(edge))
+	def get_edges_out(self, n):
+		edges = []
+		for i in range(self.fsm.R.shape[0]):
+			for j in range(self.fsm.R.shape[2]):
+				if self.fsm.R[i][n][j] > 0.1:
+					edges.append((self.alphabet_ext[i], self.alphabet_ext[j]))
+		return edges
 
-    # Removes the not reachable nodes
-    dfs = nx.dfs_preorder_nodes(G, initial_state)
-    nodes_dfs = {n for n in dfs}
-    nodes = [n for n in G.nodes]
-    for n in nodes:
-      if n not in nodes_dfs:
-        G.remove_node(n)
+	def iterate_state_io(self):
+		for s1 in range(self.fsm.T.shape[1]):
+			for s2 in range(self.fsm.T.shape[1]):
+				for i in range(self.fsm.T.shape[0]):
+					for o in range(self.fsm.T.shape[0]):
+						yield (s1, s2, i, o)
 
-    pos = nx.circular_layout(G)
-    color_map = ["green" if n == initial_state else "lightblue" for n in G.nodes]
-    nx.draw(G, pos, with_labels=True, node_color=color_map, node_size=500, arrowsize=16, font_size=8)
+	def show(self, title="", verbose=0):
+		if verbose:
+			self.print()
 
-    # Draw edge labels
-    edge_labels = nx.get_edge_attributes(G, 'label')
-    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
+		G, _, _ = self.to_nx_digraph()
 
-    # Show the plot
-    plt.title(title)
-    plt.show()
+		initial_state = int(jnp.argmax(self.fsm.s0))
+		pos = nx.circular_layout(G)
+		color_map = ["green" if n == initial_state else "lightblue" for n in G.nodes]
+		nx.draw(G, pos, with_labels=True, node_color=color_map, node_size=500, arrowsize=16, font_size=8)
+
+		# Draw edge labels
+		edge_labels = nx.get_edge_attributes(G, 'label')
+		nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
+
+		# Show the plot
+		plt.title(title)
+		plt.show()
+
+	def to_nx_digraph(self):
+		edges = {}
+		### Mejorar los for anidados con un zip
+		for s1, s2, i, o in self.iterate_state_io():
+			if self.fsm.T[i][s1][s2] > 0.01 and self.fsm.R[i][s1][o] > 0.01:
+				if (s1, s2) in edges:
+					edges[(s1, s2)].append(f"\n{self.alphabet_ext[i]}/{self.alphabet_ext[o]}")
+				else:
+					edges[(s1, s2)] = [f"{self.alphabet_ext[i]}/{self.alphabet_ext[o]}"]
+
+		# Create a directed graph
+		G = nx.DiGraph()
+
+		initial_state = int(jnp.argmax(self.fsm.s0))
+		for (s1, s2), edge in edges.items():
+			G.add_node(s1)
+			G.add_node(s2)
+			G.add_edge(s1, s2, label="".join(edge))
+
+		# Removes the not reachable nodes
+		dfs = nx.dfs_preorder_nodes(G, initial_state)
+		nodes_dfs = {n for n in dfs}
+		nodes = [n for n in G.nodes]
+		for n in nodes:
+			if n not in nodes_dfs:
+				G.remove_node(n)
+
+		return G, G.nodes, edges
+
+	def to_state_transducer(self):
+		G, _, edges = self.to_nx_digraph()
+		states = {n:i for i, n in enumerate(G.nodes)}
+		#print(f"state dict {states}")
+		#print(f"edges {edges}")
+		
+		edges_dict = {}
+		for (s1, s2), xs in edges.items():
+			if s1 in states and s2 in states:
+				if not states[s1] in edges_dict:
+					edges_dict[states[s1]] = []
+
+				for x in xs:
+					i, o = x.replace("\n", "").split("/")
+					edges_dict[states[s1]].append((i, states[s2], o))
+
+		initial_state = states[int(jnp.argmax(self.fsm.s0))]
+		return StateTransducer(list(states.values()), edges_dict, initial_state, self.alphabet)
+		
 
 
 
-    
+
+class FunctionTransducer(Transducer):
+	def __init__(self, f, alphabet):
+		self.f = f
+		super().__init__(alphabet, 8)	### Ver que hacer con ese max_states=8
+
+	def __call__(self, inputs):
+		return self.f(inputs), None
+
+	def run_fsm(self, x):
+		return self(x)
+	
+	def print(self):
+		raise NotImplementedError
+	
+	def show(self, title="", verbose=0):
+		raise NotImplementedError
 
 
 
-class FunctionTransducer:
-  def __init__(self, f, alphabet):
-    self.f = f
-    self.alphabet = alphabet
-    self.STATE_MAX = 8
-    self.CHAR_N = len(alphabet) + 1
+class StateTransducer(Transducer):
+	def __init__(self, states, edges, initial_state, alphabet):
+		super().__init__(alphabet, len(states))
+		self.states = states
+		self.edges = edges
+		self.initial_state = initial_state
 
-  def __call__(self, inputs):
-    return self.f(inputs)
+	def get_edge(self, state, input):
+		for (i, s, o) in self.edges[state]:
+			if input == i:
+				return s, o
+			
+		return None, None
 
-  def run_fsm(self, x):
-    return self(x)
+	def __call__(self, inputs):
+		states = [self.initial_state]
+		outputs = ""
+		for i in inputs:
+			output, state = self.get_edge(states[-1], i)	### [(i, s, o), ...]
+			states.append(state)
+			outputs += output
+		
+		return outputs, states
+
+	def run_fsm(self, x):
+		return self(x)
+
+	def print(self):
+		print(f"States: {self.states}")
+		print(f"Edges: {self.edges}")
+		print(f"Initial State: {self.initial_state}")
+
+	def show(self, title="", verbose=0):
+		G = nx.DiGraph()
+
+		print(self.alphabet_ext)
+
+		edges_dict = {}
+		for s1, edges in self.edges.items():
+			for i, s2, o in edges:
+				print(i, o)
+				if (s1, s2) in edges_dict:
+					
+					edges_dict[(s1, s2)].append(f"\n{i}/{o}")
+				else:
+					edges_dict[(s1, s2)] = [f"{i}/{o}"]
+
+		for (s1, s2), edge in edges_dict.items():
+			G.add_node(s1)
+			G.add_node(s2)
+			G.add_edge(s1, s2, label="".join(edge))
+
+		initial_state = self.initial_state
+		pos = nx.circular_layout(G)
+		color_map = ["green" if n == initial_state else "lightblue" for n in G.nodes]
+		nx.draw(G, pos, with_labels=True, node_color=color_map, node_size=500, arrowsize=16, font_size=8)
+
+		# Draw edge labels
+		edge_labels = nx.get_edge_attributes(G, 'label')
+		nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
+
+		# Show the plot
+		plt.title(title)
+		plt.show()
+
+		return G, G.nodes, edges

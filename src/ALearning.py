@@ -1,43 +1,18 @@
-from collections import namedtuple, Counter, defaultdict
-import itertools as it
 from functools import partial
-from termcolor import colored
-from graphviz import Digraph
-import networkx as nx
-import matplotlib.pyplot as plt
-import altair as alt
-import pandas as pd
-import matplotlib.pylab as pl
-import string
 import random
-import io
-import numpy as np
 import jax
 import jax.numpy as jnp
-
-
-from jax import nn
-from tqdm.notebook import trange
-
-from src.utils import decode_fsm, entropy, prepare_str, FSM, Params, Stats, TrainState, TrainResult
-from src.transducers import TensorTransducer, FunctionTransducer
-
-
-#from google.colab import widgets
-#from matplotlib_inline.backend_inline import set_matplotlib_formats
-#set_matplotlib_formats('svg')
-
 import optax
 
-
-
-
-
+from src.utils import decode_fsm, entropy, prepare_str, FSM, Params, Stats, TrainState, TrainResult, get_separate_char
+from src.transducers import TensorTransducer, FunctionTransducer
 
 
 
 def loss_f(params, x, y0, entropy_weight, hard=False):
   fsm = decode_fsm(params, hard=hard)
+
+  ### Se puede crear un TensorTransducer y sacar la funcion 'run_fsm_with_values'
   y, s = TensorTransducer.run_fsm_with_values(x, fsm.R, fsm.T, fsm.s0)
   error = jnp.square(y-y0).sum()
   entropy_loss = entropy(s.mean(0)) * entropy_weight
@@ -46,10 +21,11 @@ def loss_f(params, x, y0, entropy_weight, hard=False):
   return total, Stats(total=total, error=error, entropy=entropy_loss, states_used=states_used)
 
 class Trainer:
-  def __init__(self, x, y0, char_n, states, entropy_weight=0.01, lazy_bias=1.0, train_step_n=500):
+  def __init__(self, x, y0, alphabet, states, entropy_weight=0.01, lazy_bias=1.0, train_step_n=500):
     self.STATE_MAX = states
-    self.CHAR_N = char_n
-    x, y0 = prepare_str(x, self.CHAR_N), prepare_str(y0, self.CHAR_N)
+    self.CHAR_N = len(alphabet)
+    self.alphabet = alphabet
+    x, y0 = prepare_str(x, alphabet), prepare_str(y0, alphabet)
     self.task = (x, y0)
     self.loss_f = partial(loss_f, x=x, y0=y0, entropy_weight=entropy_weight)
     self.lazy_bias = lazy_bias
@@ -74,7 +50,7 @@ class Trainer:
     opt_state = self.optimizer.init(params0)
     train_state = TrainState(params0, opt_state)
 
-    for i in range(self.train_step_n):
+    for _ in range(self.train_step_n):
       train_state, stats = self.train_step(train_state)
       logs.append(stats)
 
@@ -93,14 +69,10 @@ class Trainer:
 
 
 
-
-
-
-
 class Learner:
   def __init__(self):
     self.target_transducer = None
-    self.separate_char = "2"  ### Cambiar
+    self.separate_char = None
     self.max_length_sec = 10 ### Cambiar
     self.xs = []
     self.ys = []
@@ -126,8 +98,8 @@ class Learner:
     key = jax.random.PRNGKey(1)
     return jax.random.split(key, run_n)
 
-  def train_fsm(self, keys, x, y, n_char, state_max, verbose=0):
-    trainer = Trainer(x, y, n_char, state_max)
+  def train_fsm(self, keys, x, y, alphabet, state_max, verbose=0):
+    trainer = Trainer(x, y, alphabet, state_max)
     self.r = jax.vmap(trainer.run)(keys)
 
     best_i = (self.r.eval.states_used + self.r.eval.error*10000).argmin()
@@ -141,14 +113,14 @@ class Learner:
 
   def learn(self, target_transducer, budget, run_n=1000, verbose=0):
     self.target_transducer = target_transducer
+    self.separate_char = get_separate_char(target_transducer.alphabet)
     self.xs = [self.generate_input(random.randint(1, self.max_length_sec))]
     self.ys = [self.target_transducer.run_fsm(self.xs[0])]
-
 
     for i in range(budget):
       keys = self.generate_keys(run_n)
       x_test, y_test = self.generate_xy()
-      T, R, s0 = self.train_fsm(keys, x_test, y_test, self.target_transducer.N_CHAR, self.target_transducer.STATE_MAX)
+      T, R, s0 = self.train_fsm(keys, x_test, y_test, self.target_transducer.alphabet_ext, self.target_transducer.STATE_MAX)
       transducer = TensorTransducer(T, R, s0, self.target_transducer.alphabet, self.target_transducer.MAX_STATE)  ### Convierte el fsm en Transducer con tensores
 
       if verbose:
@@ -170,12 +142,16 @@ class Learner:
   def learn_from_dataset(self, xs, ys, alphabet, run_n=1000, state_max=8, verbose=0):
     assert len(xs) == len(ys), "Error"
 
+    self.separate_char = get_separate_char(alphabet)
     keys = self.generate_keys(run_n)
     
     x = "".join([x + self.separate_char for x in xs])
     y = "".join([y + self.separate_char for y in ys])
 
-    T, R, s0 = self.train_fsm(keys, x, y, n_char=len(alphabet)+1, state_max=state_max)
+    separate_char = get_separate_char(alphabet)
+    alphabet_ext = alphabet + [separate_char]
+    T, R, s0 = self.train_fsm(keys, x, y, alphabet_ext, state_max=state_max)
+
     transducer = TensorTransducer(T, R, s0, alphabet, state_max)
     return transducer
 
