@@ -25,16 +25,23 @@ def decode_fsm(params: Params, hard=False) -> FSM:
 def prepare_str(s, alphabet):
   return nn.one_hot(list(map(f_char2int(alphabet), s)), len(alphabet))
 
+def decode_str(x, alphabet):
+  return "".join([alphabet[i] for i in x.argmax(axis=1).tolist()])
+
 def entropy(p):
   return jnp.where(p>0.0, -p*jnp.log(p), 0.0).sum()
 
 def get_separate_char(alphabet):
   return [c for c in full_alphabet if c not in alphabet][0]
 
-def generate_data_set(f, alphabet, records=16, min_length=1, max_length=8):
+def generate_data_set(f, alphabet_in, records=16, min_length=1, max_length=8, verbose=0):
   res = {}
   while len(res) < records:
-    x = ''.join(random.choices(alphabet, k=random.randint(min_length, max_length)))
+    x = ''.join(random.choices(alphabet_in, k=random.randint(min_length, max_length)))
     res[x] = f(x)
 
-  return list(res.keys()), list(res.values())
+  xs, ys = list(res.keys()), list(res.values())
+  if verbose:
+    print(xs, ys)
+
+  return xs, ys

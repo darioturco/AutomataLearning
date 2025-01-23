@@ -4,30 +4,38 @@ from src.ALearning import Learner, TensorTransducer, FunctionTransducer
 from tests.test_tensors import *
 from tests.test_functions import *
 from tests.test_dataset import *
-from src.utils import generate_data_set
+from src.utils import generate_data_set, prepare_str
+
+
+def error_square(xs, ys0, transducer):
+
+	x = transducer.separate_char.join(xs) + transducer.separate_char
+	y0 = transducer.separate_char.join(ys0) + transducer.separate_char
+	x = prepare_str(x, transducer.alphabet_in_ext)
+	y0 = prepare_str(y0, transducer.alphabet_out_ext)
+	#error = 0.0
+	#for x, y0 in zip(xs, ys0):
+	fsm = transducer.fsm
+	y, s = TensorTransducer.run_fsm_with_values(x, fsm.R, fsm.T, fsm.s0)
+	return jnp.square(y - y0).sum()
+
+
+
+
 
 if __name__ == "__main__":
-
-	#target_fsm = TensorTransducer(T1, R1, s1, alphabet=['0', '1'])
-	target_fsm = FunctionTransducer(f1, alphabet=['0', '1'])
-
 	learner = Learner()
-	#transducer = learner.learn(1000, verbose=1)
+	
+	problem = problem2
+	xs, ys = generate_data_set(problem.f, alphabet_in=problem.alphabet_in, records=8, min_length=2,  max_length=10, verbose=1)
+	transducer = learner.learn_from_dataset(xs, ys, problem.alphabet_in, problem.alphabet_out, run_n=16, state_max=8, verbose=0)
+	
 
-	#transducer = learner.learn_from_dataset(xs1, ys1, ['0', '1'], 1000, verbose=1)
-	#transducer = learner.learn_from_dataset(xs2, ys2, ['0', '1', '2', '3', '4', '5'], 1000, verbose=1)
-	#transducer = learner.learn_from_dataset(xs3, ys3, ['0', '1', '2', '3', '4', '5'], 1000, verbose=1)
-	#transducer = learner.learn_from_dataset(xs4, ys4, ['a', 'b'], 1000, verbose=0)
+	#print(f"Error: {transducer.error_square(xs, ys)}")
+	print(f"Error: {error_square(xs, ys, transducer)}")
+	print("---------------------")
+	#transducer.print()
 
-	alphabet = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
-	#xs, ys = generate_data_set(f1, alphabet=['0', '1'], records=16, max_length=10)
-	xs, ys = generate_data_set(f2, alphabet=alphabet, records=16, min_length=2,  max_length=32)
-	print(xs, ys)
-	transducer = learner.learn_from_dataset(xs, ys, alphabet, 1000, state_max=12, verbose=0)
 
-	print(f"Error: {transducer.error_square(xs, ys)}")
+	#transducer.show(verbose=0)
 
-	#state_transducer = transducer.to_state_transducer()
-	#state_transducer.print()
-	#state_transducer.show(verbose=0)
-	transducer.show(verbose=0)

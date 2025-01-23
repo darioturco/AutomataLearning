@@ -4,33 +4,39 @@ import matplotlib.pyplot as plt
 import jax
 import jax.numpy as jnp
 
-from src.utils import decode_fsm, entropy, prepare_str, FSM, Params, Stats, TrainState, TrainResult, get_separate_char
+from src.utils import decode_fsm, entropy, prepare_str, FSM, Params, Stats, TrainState, TrainResult, get_separate_char, decode_str
 
 class Transducer:
-	def __init__(self, alphabet, max_state):
-		self.alphabet = alphabet
-		self.separate_char = get_separate_char(alphabet)
-		self.alphabet_ext = alphabet + [self.separate_char]
-		self.CHAR_N = len(alphabet) + 1
+	def __init__(self, alphabet_in, alphabet_out, max_state):
+		self.alphabet_in = alphabet_in
+		self.alphabet_out = alphabet_out
+		self.separate_char = get_separate_char(alphabet_in + alphabet_out)
+		self.alphabet_in_ext = alphabet_in + [self.separate_char]
+		self.alphabet_out_ext = alphabet_in + [self.separate_char]
+		self.CHAR_IN = len(alphabet_in) + 1
+		self.CHAR_OUT = len(alphabet_out) + 1
 		self.STATE_MAX = max_state
 		
-
 	def error_square(self, xs, ys0, entropy_weight=0):
 		error = 0.0
 		for x, y0 in zip(xs, ys0):
 			y, s = self(x)
-			y0 = prepare_str(y0, self.alphabet_ext)
+			y0 = prepare_str(y0, self.alphabet_out_ext)
 			error += jnp.square(y-y0).sum()
 			error += 0.0 if s is None else entropy(s.mean(0)) * entropy_weight
 		return error
+
+	def __call__(self, inputs):
+		raise NotImplementedError
 		
 
 class TensorTransducer(Transducer):
-	def __init__(self, T, R, s0, alphabet, max_state=8):
-		super().__init__(alphabet, max_state)
-		self.fsm = decode_fsm(Params(T, R, s0), hard=True)
-		
+	def __init__(self, T, R, s0, alphabet_in, alphabet_out, max_state=8):
+		super().__init__(alphabet_in, alphabet_out, max_state)
+		#self.fsm = decode_fsm(Params(T, R, s0), hard=True)
+		self.fsm = Params(T, R, s0)
 
+		
 	@staticmethod
 	def run_fsm_with_values(inputs, R, T, s0):
 		def f(s, x):
@@ -42,13 +48,12 @@ class TensorTransducer(Transducer):
 		return outputs, jnp.vstack([s0, states])
 
 	def __call__(self, inputs):
-		inputs = prepare_str(inputs, self.alphabet_ext)
+		inputs = prepare_str(inputs, self.alphabet_in_ext)
 		return TensorTransducer.run_fsm_with_values(inputs, self.fsm.R, self.fsm.T, self.fsm.s0)
 
 	def run_fsm(self, x):
 		y, _ = self(x)
-		index = y.argmax(axis=1)
-		return "".join([self.char_dict[i] for i in index.tolist()][:-1] + ['2']) ### Cambiar el caracter de separacion
+		return decode_str(y, self.alphabet_out)
 
 	def show_fsm_story(xx, yy, ss):
 		G = Digraph(graph_attr={'rankdir':'LR'}, node_attr={'shape':'circle'})
@@ -62,16 +67,16 @@ class TensorTransducer(Transducer):
 		return G
 
 	def print(self):
-		print(f"T = {self.fsm.T}")
-		print(f"R = {self.fsm.R}")
-		print(f"Initial State = {self.fsm.s0}")
+		print(f"T = {self.fsm.T.shape}")
+		print(f"R = {self.fsm.R.shape}")
+		print(f"Initial State = {self.fsm.s0.shape}")
 
 	def get_edges_out(self, n):
 		edges = []
 		for i in range(self.fsm.R.shape[0]):
 			for j in range(self.fsm.R.shape[2]):
 				if self.fsm.R[i][n][j] > 0.1:
-					edges.append((self.alphabet_ext[i], self.alphabet_ext[j]))
+					edges.append((self.alphabet_in_ext[i], self.alphabet_out_ext[j]))
 		return edges
 
 	def iterate_state_io(self):
@@ -106,9 +111,9 @@ class TensorTransducer(Transducer):
 		for s1, s2, i, o in self.iterate_state_io():
 			if self.fsm.T[i][s1][s2] > 0.01 and self.fsm.R[i][s1][o] > 0.01:
 				if (s1, s2) in edges:
-					edges[(s1, s2)].append(f"\n{self.alphabet_ext[i]}/{self.alphabet_ext[o]}")
+					edges[(s1, s2)].append(f"\n{self.alphabet_in_ext[i]}/{self.alphabet_out_ext[o]}")
 				else:
-					edges[(s1, s2)] = [f"{self.alphabet_ext[i]}/{self.alphabet_ext[o]}"]
+					edges[(s1, s2)] = [f"{self.alphabet_in_ext[i]}/{self.alphabet_out_ext[o]}"]
 
 		# Create a directed graph
 		G = nx.DiGraph()
@@ -146,16 +151,16 @@ class TensorTransducer(Transducer):
 					edges_dict[states[s1]].append((i, states[s2], o))
 
 		initial_state = states[int(jnp.argmax(self.fsm.s0))]
-		return StateTransducer(list(states.values()), edges_dict, initial_state, self.alphabet)
+		return StateTransducer(list(states.values()), edges_dict, initial_state, self.alphabet_in, self.alphabet_out)
 		
 
 
 
 
 class FunctionTransducer(Transducer):
-	def __init__(self, f, alphabet):
+	def __init__(self, f, alphabet_in, alphabet_out):
 		self.f = f
-		super().__init__(alphabet, 8)	### Ver que hacer con ese max_states=8
+		super().__init__(alphabet_in, alphabet_out, 8)	### Ver que hacer con ese max_states=8
 
 	def __call__(self, inputs):
 		return self.f(inputs), None
@@ -172,8 +177,8 @@ class FunctionTransducer(Transducer):
 
 
 class StateTransducer(Transducer):
-	def __init__(self, states, edges, initial_state, alphabet):
-		super().__init__(alphabet, len(states))
+	def __init__(self, states, edges, initial_state, alphabet_in, alphabet_out):
+		super().__init__(alphabet_in, alphabet_out, len(states))
 		self.states = states
 		self.edges = edges
 		self.initial_state = initial_state
@@ -205,8 +210,6 @@ class StateTransducer(Transducer):
 
 	def show(self, title="", verbose=0):
 		G = nx.DiGraph()
-
-		print(self.alphabet_ext)
 
 		edges_dict = {}
 		for s1, edges in self.edges.items():
