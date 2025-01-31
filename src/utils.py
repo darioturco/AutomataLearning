@@ -45,3 +45,6 @@ def generate_data_set(f, alphabet_in, records=16, min_length=1, max_length=8, ve
     print(xs, ys)
 
   return xs, ys
+
+def cartesian_product(list1, list2):
+  return [(i, j) for i in list1 for j in list2]

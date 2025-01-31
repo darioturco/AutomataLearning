@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import jax
 import jax.numpy as jnp
 
-from src.utils import decode_fsm, entropy, prepare_str, FSM, Params, Stats, TrainState, TrainResult, get_separate_char, decode_str
+from src.utils import decode_fsm, entropy, prepare_str, FSM, Params, Stats, TrainState, TrainResult, get_separate_char, decode_str, cartesian_product
 
 class Transducer:
 	def __init__(self, alphabet_in, alphabet_out, max_state):
@@ -26,7 +26,32 @@ class Transducer:
 			error += 0.0 if s is None else entropy(s.mean(0)) * entropy_weight
 		return error
 
+	def cancat_error_square(self, xs, ys0):
+		x = self.separate_char.join(xs) + self.separate_char
+		y0 = self.separate_char.join(ys0) + self.separate_char
+		x = prepare_str(x, self.alphabet_in_ext)
+		y0 = prepare_str(y0, self.alphabet_out_ext)
+		fsm = self.fsm
+		y, s = TensorTransducer.run_fsm_with_values(x, fsm.R, fsm.T, fsm.s0)
+		return jnp.square(y - y0).sum()
+
 	def __call__(self, inputs):
+		raise NotImplementedError
+
+	def to_state_transducer(self):
+		raise NotImplementedError
+
+	# Transducer Operations
+	def union(self, transducer):
+		raise NotImplementedError
+
+	def intersection(self, transducer):
+		raise NotImplementedError
+
+	def composition(self, transducer):
+		raise NotImplementedError
+
+	def concatenation(self, transducer):
 		raise NotImplementedError
 		
 
@@ -174,6 +199,9 @@ class FunctionTransducer(Transducer):
 	def show(self, title="", verbose=0):
 		raise NotImplementedError
 
+	def to_state_transducer(self):
+		raise NotImplementedError
+
 
 
 class StateTransducer(Transducer):
@@ -240,3 +268,20 @@ class StateTransducer(Transducer):
 		plt.show()
 
 		return G, G.nodes, edges
+
+	def to_state_transducer(self):
+		return self
+
+	def union(self, transducer):
+		states = cartesian_product(self.states, transducer.states)
+		edges = []	 ### Agraegar
+		initial_state = (self.initial_state, transducer.initial_state)
+
+		alphabet_in = self.alphabet_in + transducer.alphabet_in
+		alphabet_out = self.alphabet_out + transducer.alphabet_out
+
+		return StateTransducer(states, edges, initial_state, alphabet_in, alphabet_out)
+
+
+
+
