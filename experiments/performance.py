@@ -8,6 +8,7 @@ def measure_performance_in_datasets():
     alphabets_in = [alphabet_in_1, alphabet_in_2, alphabet_in_3, alphabet_in_4, alphabet_in_5, alphabet_in_6, alphabet_in_7, alphabet_in_8, alphabet_in_9, alphabet_in_10]
     alphabets_out = [alphabet_out_1, alphabet_out_2, alphabet_out_3, alphabet_out_4, alphabet_out_5, alphabet_out_6, alphabet_out_7, alphabet_out_8, alphabet_out_9, alphabet_out_10]
 
+    transducers = []
     for i, (xs, ys, alphabet_in, alphabet_out) in enumerate(zip(xss, yss, alphabets_in, alphabets_out)):
         learner = Learner()
         print(f"Problem {i+1}:")
@@ -15,5 +16,9 @@ def measure_performance_in_datasets():
         print(f"    ys: {ys}")
         transducer = learner.learn_from_dataset(xs, ys, alphabet_in, alphabet_out, run_n=500, state_max=16, verbose=0)
         print(f"    Square Error Sum: {transducer.error_square(xs, ys)}\n")
+        transducers.append(transducer)
+
+    return transducers
+
 
 
