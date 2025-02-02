@@ -12,7 +12,7 @@ class Transducer:
 		self.alphabet_out = alphabet_out
 		self.separate_char = get_separate_char(alphabet_in + alphabet_out)
 		self.alphabet_in_ext = alphabet_in + [self.separate_char]
-		self.alphabet_out_ext = alphabet_in + [self.separate_char]
+		self.alphabet_out_ext = alphabet_out + [self.separate_char]
 		self.CHAR_IN = len(alphabet_in) + 1
 		self.CHAR_OUT = len(alphabet_out) + 1
 		self.STATE_MAX = max_state
@@ -162,8 +162,6 @@ class TensorTransducer(Transducer):
 	def to_state_transducer(self):
 		G, _, edges = self.to_nx_digraph()
 		states = {n:i for i, n in enumerate(G.nodes)}
-		#print(f"state dict {states}")
-		#print(f"edges {edges}")
 		
 		edges_dict = {}
 		for (s1, s2), xs in edges.items():
@@ -211,9 +209,9 @@ class StateTransducer(Transducer):
 		self.edges = edges
 		self.initial_state = initial_state
 
-	def get_edge(self, state, input):
+	def get_edge(self, state, input_):
 		for (i, s, o) in self.edges[state]:
-			if input == i:
+			if input_ == i:
 				return s, o
 			
 		return None, None
@@ -222,7 +220,9 @@ class StateTransducer(Transducer):
 		states = [self.initial_state]
 		outputs = ""
 		for i in inputs:
-			output, state = self.get_edge(states[-1], i)	### [(i, s, o), ...]
+			state, output = self.get_edge(states[-1], i)	### [(i, s, o), ...]
+
+			### Falta chequear if it None
 			states.append(state)
 			outputs += output
 		
@@ -272,15 +272,6 @@ class StateTransducer(Transducer):
 	def to_state_transducer(self):
 		return self
 
-	def union(self, transducer):
-		states = cartesian_product(self.states, transducer.states)
-		edges = []	 ### Agraegar
-		initial_state = (self.initial_state, transducer.initial_state)
-
-		alphabet_in = self.alphabet_in + transducer.alphabet_in
-		alphabet_out = self.alphabet_out + transducer.alphabet_out
-
-		return StateTransducer(states, edges, initial_state, alphabet_in, alphabet_out)
 
 
 

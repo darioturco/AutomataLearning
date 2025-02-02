@@ -9,7 +9,7 @@ Stats = namedtuple('Stats', 'total error entropy states_used')
 TrainState = namedtuple('TrainState', 'params opt_state')
 TrainResult = namedtuple('TrainResult', 'params eval logs')
 
-full_alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ "
+full_alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ #.,*()[]{}@!$^&-+?_=|`~<>"
 
 def f_char2int(alphabet):
   return lambda c: alphabet.index(c)
@@ -46,5 +46,12 @@ def generate_data_set(f, alphabet_in, records=16, min_length=1, max_length=8, ve
 
   return xs, ys
 
+def probabilistic_sample(alphabet, p=0.1, can_be_empty=False):
+  res = "" if can_be_empty else random.choice(alphabet)
+  while random.random() < p:  # Flip a coin with probability 'mu'
+    res += random.choice(alphabet)
+  return res
+
 def cartesian_product(list1, list2):
   return [(i, j) for i in list1 for j in list2]
+

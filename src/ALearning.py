@@ -14,10 +14,6 @@ def loss_f(params, x, y0, entropy_weight, hard=False):
 
   ### Se puede crear un TensorTransducer y sacar la funcion 'run_fsm_with_values'
   y, s = TensorTransducer.run_fsm_with_values(x, fsm.R, fsm.T, fsm.s0)
-  print("-----------------")
-  print(f"x = {x}")
-  print(f"y = {y}")
-  print("-----------------")
   error = jnp.square(y-y0).sum()
   entropy_loss = entropy(s.mean(0)) * entropy_weight
   total = error + entropy_loss
@@ -107,10 +103,7 @@ class Learner:
   def train_fsm(self, keys, x, y, alphabet_in, alphabet_out, state_max, entropy_weight=0, verbose=0):
     trainer = Trainer(x, y, alphabet_in, alphabet_out, state_max, entropy_weight)
     self.r = jax.vmap(trainer.run)(keys)
-
     best_i = (self.r.eval.states_used + self.r.eval.error*10000).argmin()
-    print(f"Best i = {best_i}")
-    print(f"The best: {self.r.eval.error.min()}")
     best_params = jax.tree_util.tree_map(lambda x:x[best_i], self.r.params)
     best_fsm = decode_fsm(best_params, hard=True)
 
