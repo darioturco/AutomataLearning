@@ -1,11 +1,16 @@
+from collections import namedtuple
 from graphviz import Digraph
 import networkx as nx
 import matplotlib.pyplot as plt
 import jax
 import jax.numpy as jnp
+from src.utils import entropy, prepare_str, get_separate_char, decode_str, cartesian_product
 
-from src.utils import decode_fsm, entropy, prepare_str, FSM, Params, Stats, TrainState, TrainResult, get_separate_char, decode_str, cartesian_product
-
+FSM = namedtuple('FSM', 'T R s0')
+Params = namedtuple('Params', 'T R s0')
+Stats = namedtuple('Stats', 'total error entropy states_used')
+TrainState = namedtuple('TrainState', 'params opt_state')
+TrainResult = namedtuple('TrainResult', 'params eval logs')
 class Transducer:
 	def __init__(self, alphabet_in, alphabet_out, max_state):
 		self.alphabet_in = alphabet_in
@@ -41,24 +46,11 @@ class Transducer:
 	def to_state_transducer(self):
 		raise NotImplementedError
 
-	# Transducer Operations
-	def union(self, transducer):
-		raise NotImplementedError
 
-	def intersection(self, transducer):
-		raise NotImplementedError
-
-	def composition(self, transducer):
-		raise NotImplementedError
-
-	def concatenation(self, transducer):
-		raise NotImplementedError
-		
 
 class TensorTransducer(Transducer):
 	def __init__(self, T, R, s0, alphabet_in, alphabet_out, max_state=8):
 		super().__init__(alphabet_in, alphabet_out, max_state)
-		#self.fsm = decode_fsm(Params(T, R, s0), hard=True)
 		self.fsm = Params(T, R, s0)
 
 		
@@ -267,7 +259,7 @@ class StateTransducer(Transducer):
 		plt.title(title)
 		plt.show()
 
-		return G, G.nodes, edges
+		return G, G.nodes
 
 	def to_state_transducer(self):
 		return self

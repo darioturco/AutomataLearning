@@ -28,7 +28,7 @@ ys5 = ["10101010101", "1010101010", "1010101", "101", "1"]
 alphabet_in_5 = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
 alphabet_out_5 = ['0', '1']
 
-# Replace the aparitions of '101' for 'aaa'
+# Replace the apparitions of '101' for 'aaa'
 xs6 = ["10100", "00110010", "101010101", "111", "1", "10"]
 ys6 = ["aaa00", "00110010", "aaa0aaa01", "111", "1", "10"]
 alphabet_in_6 = ['0', '1']
@@ -40,3 +40,20 @@ ys7 = ["3###", "4##", "6##", "9##", "11#", "19##", "42###", "74####", "95##", "1
 alphabet_in_7 = ["I", "V", "X", "L", "C", "D", "M", "#"]
 alphabet_out_7 = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '#']
 
+# Emit 0 but emit 1 when consume the first 1
+xs8 = ["000100", "00110010", "101010000", "111", "0", "00001001"]
+ys8 = ["000111", "00111111", "111111111", "111", "0", "00001111"]
+alphabet_in_8 = ['0', '1']
+alphabet_out_8 = ['0', '1']
+
+# Replace 'a' by 'zxy'
+xs9 = ["abbbb", "aa", "bbbbbabb", "bbbbbbb", "bb", "abbbabbbb", "bbba"]
+ys9 = ["zxybb", "zx", "bbbbbzxy", "bbbbbbb", "bb", "zxybzxybb", "bbbz"]
+alphabet_in_9 = ['a', 'b']
+alphabet_out_9 = ['a', 'b', 'z', 'x', 'y']
+
+# Right shift by 1 bit
+xs10 = ["010010101", "101", "000010101", "11011011", "1", "011001001111", "0111"]
+ys10 = ["001001010", "010", "000001010", "01101101", "0", "001100100111", "0011"]
+alphabet_in_10 = ['0', '1']
+alphabet_out_10 = ['0', '1']

@@ -1,13 +1,6 @@
-from collections import namedtuple
 import jax.numpy as jnp
 from jax import nn
 import random
-
-FSM = namedtuple('FSM', 'T R s0')
-Params = namedtuple('Params', 'T R s0')
-Stats = namedtuple('Stats', 'total error entropy states_used')
-TrainState = namedtuple('TrainState', 'params opt_state')
-TrainResult = namedtuple('TrainResult', 'params eval logs')
 
 full_alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ #.,*()[]{}@!$^&-+?_=|`~<>"
 
@@ -17,10 +10,10 @@ def f_char2int(alphabet):
 def hardmax(x):
   return nn.one_hot(x.argmax(-1), x.shape[-1])
 
-def decode_fsm(params: Params, hard=False) -> FSM:
+def decode_fsm(params, hard=False):
   T, R, s0 = params
   f = hardmax if hard else nn.softmax
-  return FSM(f(T), f(R), f(s0))
+  return f(T), f(R), f(s0)
 
 def prepare_str(s, alphabet):
   return nn.one_hot(list(map(f_char2int(alphabet), s)), len(alphabet))

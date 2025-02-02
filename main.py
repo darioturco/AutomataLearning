@@ -1,6 +1,6 @@
 from collections import defaultdict
 #from src.L import *
-from src.ALearning import Learner, TensorTransducer, FunctionTransducer
+from src.automatas.automata_learning import Learner, TensorAutomata, FunctionAutomata
 from tests.test_tensors import *
 from tests.test_functions import *
 from tests.test_dataset import *
