@@ -1,6 +1,7 @@
 
-from tests.test_dataset import *
-from src.transducers.transducer_learning import Learner, TensorTransducer, FunctionTransducer
+from tests.tranducers.test_dataset import *
+from src.transducers.transducer_learning import Learner
+
 
 def measure_performance_in_datasets():
     xss = [xs1, xs2, xs3, xs4, xs5, xs6, xs7, xs8, xs9, xs10]

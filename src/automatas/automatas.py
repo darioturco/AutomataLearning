@@ -7,8 +7,8 @@ import jax.numpy as jnp
 
 from src.utils import decode_fsm, entropy, prepare_str, get_separate_char, decode_str, cartesian_product
 
-FSM = namedtuple('FSM', 'T R s0')
-Params = namedtuple('Params', 'T R s0')
+FSM = namedtuple('FSM', 'T A s0')
+Params = namedtuple('Params', 'T A s0')
 Stats = namedtuple('Stats', 'total error entropy states_used')
 TrainState = namedtuple('TrainState', 'params opt_state')
 TrainResult = namedtuple('TrainResult', 'params eval logs')
@@ -17,9 +17,18 @@ class Automata:
 	def __init__(self, alphabet, max_state):
 		self.alphabet = alphabet
 		self.separate_char = get_separate_char(alphabet)
-		self.alphabet_out_ext = alphabet + [self.separate_char]
+		self.alphabet_ext = alphabet + [self.separate_char]
 		self.CHAR = len(alphabet) + 1
 		self.STATE_MAX = max_state
+
+	def error_square(self, xs, ys0, entropy_weight=0):
+		error = 0.0
+		for x, y0 in zip(xs, ys0):
+			y, s = self(x)
+			y0 = prepare_str(y0, ['0', '1', self.separate_char])
+			error += jnp.square(y-y0).sum()
+			error += 0.0 if s is None else entropy(s.mean(0)) * entropy_weight
+		return error
 
 	def __call__(self, inputs):
 		raise NotImplementedError
@@ -46,25 +55,28 @@ class TensorAutomata(Automata):
 		super().__init__(alphabet, max_state)
 		self.fsm = Params(T, A, s0)
 
+
 		
 	@staticmethod
-	def run_fsm_with_values(inputs, R, T, s0):
+	def run_fsm_with_values(inputs, A, T, s0):
 		def f(s, x):
-			y  = jnp.einsum('x,s,xsy->y', x, s, R)
 			s1 = jnp.einsum('x,s,xst->t', x, s, T)
+			y  = jnp.einsum('s,sy->y', s1, A)
+
 			return s1, (y, s1)
 
 		_, (outputs, states) = jax.lax.scan(f, s0, inputs)
 		return outputs, jnp.vstack([s0, states])
 
 	def __call__(self, inputs):
-		inputs = prepare_str(inputs, self.alphabet_in_ext)
-		return TensorAutomata.run_fsm_with_values(inputs, self.fsm.R, self.fsm.T, self.fsm.s0)
+		inputs = prepare_str(inputs, self.alphabet_ext)
+		return TensorAutomata.run_fsm_with_values(inputs, self.fsm.A, self.fsm.T, self.fsm.s0)
 
 	def run_fsm(self, x):
 		y, _ = self(x)
-		return decode_str(y, self.alphabet_out)
+		return decode_str(y, ['0', '1', self.separate_char])
 
+	### Cambiar
 	def show_fsm_story(xx, yy, ss):
 		G = Digraph(graph_attr={'rankdir':'LR'}, node_attr={'shape':'circle'})
 		G.node(ss[0], penwidth='3px')
@@ -78,9 +90,10 @@ class TensorAutomata(Automata):
 
 	def print(self):
 		print(f"T = {self.fsm.T.shape}")
-		print(f"R = {self.fsm.R.shape}")
+		print(f"R = {self.fsm.A.shape}")
 		print(f"Initial State = {self.fsm.s0.shape}")
 
+	### Cambiar
 	def get_edges_out(self, n):
 		edges = []
 		for i in range(self.fsm.R.shape[0]):
@@ -89,6 +102,7 @@ class TensorAutomata(Automata):
 					edges.append((self.alphabet_in_ext[i], self.alphabet_out_ext[j]))
 		return edges
 
+	### Cambiar
 	def iterate_state_io(self):
 		for s1 in range(self.fsm.T.shape[1]):
 			for s2 in range(self.fsm.T.shape[1]):
@@ -96,7 +110,7 @@ class TensorAutomata(Automata):
 					for o in range(self.fsm.T.shape[0]):
 						yield (s1, s2, i, o)
 
-	# Cambiar
+	### Cambiar
 	def show(self, title="", verbose=0):
 		if verbose:
 			self.print()
@@ -116,7 +130,7 @@ class TensorAutomata(Automata):
 		plt.title(title)
 		plt.show()
 
-	# Cambiar
+	### Cambiar
 	def to_nx_digraph(self):
 		edges = {}
 		### Mejorar los for anidados con un zip
@@ -146,6 +160,7 @@ class TensorAutomata(Automata):
 
 		return G, G.nodes, edges
 
+	### Cambiar
 	def to_state_transducer(self):
 		G, _, edges = self.to_nx_digraph()
 		states = {n:i for i, n in enumerate(G.nodes)}
@@ -190,11 +205,11 @@ class FunctionAutomata(Automata):
 		raise NotImplementedError
 
 class StateAutomata(Automata):
-	def __init__(self, states, edges, acepting_states, initial_state, alphabet):
+	def __init__(self, states, edges, accepting_states, initial_state, alphabet):
 		super().__init__(alphabet, len(states))
 		self.states = states
 		self.edges = edges					# {s1: [(i, s_i), ...], s2:...}
-		self.acepting_states = acepting_states
+		self.accepting_states = accepting_states
 		self.initial_state = initial_state
 
 	# Return the new state before consume 'input_' in the state 'state'
@@ -213,7 +228,7 @@ class StateAutomata(Automata):
 			### Falta chequear if it None
 			states.append(state)
 			
-		return states[-1] in self.acepting_states
+		return states[-1] in self.accepting_states
 
 	def run_fsm(self, x):
 		return self(x)
@@ -221,7 +236,7 @@ class StateAutomata(Automata):
 	def print(self):
 		print(f"States: {self.states}")
 		print(f"Edges: {self.edges}")
-		print(f"Acepting Sates: {self.acepting_states}")
+		print(f"Accepting Sates: {self.accepting_states}")
 		print(f"Initial State: {self.initial_state}")
 
 	### Cambiar

@@ -45,11 +45,8 @@ class Learner:
     self.epsilon_error = epsilon_error
     self.optimizer = optax.adam(learning_rate, b1, b2)
     self.verbose = verbose
-
-    # self.loss_f = partial(loss_f, x=x, y0=y0, entropy_weight=entropy_weight)
     self.loss_f = None
 
-  # Trainer Functions ---------------------------------
 
   @partial(jax.jit, static_argnums=(0,))
   def train_step(self, train_state):
@@ -81,9 +78,6 @@ class Learner:
     s0 = jax.random.normal(k3, [self.max_states]) * noise
     return Params(T, R, s0)
 
-  # ---------------------------------
-
-
   def contain_query(self, x):
     return self.target_transducer(x)
 
@@ -105,12 +99,11 @@ class Learner:
     return jax.random.split(key, run_n)
 
   def train_fsm(self, keys, x, y):
-    #trainer = Trainer(x, y, alphabet_in, alphabet_out, state_max, entropy_weight)
     x, y = prepare_str(x, self.alphabet_in_ext), prepare_str(y, self.alphabet_out_ext)
     self.loss_f = partial(loss_f, x=x, y0=y, entropy_weight=self.entropy_weight)
     self.r = jax.vmap(self.run)(keys)
     best_i = (self.r.eval.states_used + self.r.eval.error*10000).argmin()
-    best_params = jax.tree_util.tree_map(lambda x:x[best_i], self.r.params)
+    best_params = jax.tree_util.tree_map(lambda a:a[best_i], self.r.params)
     T, R, s0 = decode_fsm(best_params, hard=True)
     best_fsm = FSM(T, R, s0)
     return best_fsm.T, best_fsm.R, best_fsm.s0
@@ -119,6 +112,8 @@ class Learner:
     return "".join(self.xs), "".join(self.ys)
 
   def learn(self, target_transducer, budget, run_n=1000, verbose=0):
+    ### Assert alphabets in target_transducer are the same in self
+
     self.target_transducer = target_transducer
     self.xs = [self.generate_input(random.randint(1, self.max_length_sec))]
     self.ys = [self.target_transducer.run_fsm(self.xs[0])]
@@ -128,7 +123,7 @@ class Learner:
       keys = self.generate_keys(run_n)
       x_test, y_test = self.generate_xy()
       T, R, s0 = self.train_fsm(keys, x_test, y_test)
-      transducer = TensorTransducer(T, R, s0, self.target_transducer.alphabet_in, self.target_transducer.alphabet_out, self.target_transducer.MAX_STATE)  ### Convierte el fsm en Transducer con tensores
+      transducer = TensorTransducer(T, R, s0, self.alphabet_in, self.alphabet_out, self.max_states)
 
       if verbose:
         print(f"Iteration: {i}")
@@ -143,19 +138,19 @@ class Learner:
 
       self.xs.append(counter)
       self.ys.append(self.target_transducer.run_fsm(counter))
-      
+
     return transducer
-  
+
   def learn_from_dataset(self, xs, ys, run_n=1000, verbose=0):
     assert len(xs) == len(ys), "Error"
     keys = self.generate_keys(run_n)
-    
+
     x = "".join([x + self.separate_char for x in xs])
     y = "".join([y + self.separate_char for y in ys])
     T, R, s0 = self.train_fsm(keys, x, y)
 
     return TensorTransducer(T, R, s0, self.alphabet_in, self.alphabet_out, self.max_states)
 
-    
-  
+
+
 
