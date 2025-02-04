@@ -62,6 +62,7 @@ class TensorTransducer(Transducer):
 			return s1, (y, s1)
 
 		_, (outputs, states) = jax.lax.scan(f, s0, inputs)
+		#jax.debug.print("🤯 {outputs} 🤯", outputs=outputs)
 		return outputs, jnp.vstack([s0, states])
 
 	def __call__(self, inputs):

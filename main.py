@@ -15,6 +15,6 @@ import random
 if __name__ == "__main__":
 	#measure_performance_in_datasets()
 
-	learner = TransducerLearner()
-	transducer = learner.learn_from_dataset(xs6, ys6, alphabet_in_6, alphabet_out_6, run_n=500, state_max=16, verbose=0)
+	learner = TransducerLearner(16, alphabet_in_6, alphabet_out_6)
+	transducer = learner.learn_from_dataset(xs6, ys6, run_n=10, verbose=0)
 	print(f"    Square Error Sum: {transducer.error_square(xs6, ys6)}\n")

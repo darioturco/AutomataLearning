@@ -3,6 +3,7 @@ from jax import nn
 import random
 
 full_alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ #.,*()[]{}@!$^&-+?_=|`~<>"
+lambda_char = 'λ'
 
 def f_char2int(alphabet):
   return lambda c: alphabet.index(c)
