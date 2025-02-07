@@ -55,8 +55,6 @@ class TensorAutomata(Automata):
 		super().__init__(alphabet, max_state)
 		self.fsm = Params(T, A, s0)
 
-
-		
 	@staticmethod
 	def run_fsm_with_values(inputs, A, T, s0):
 		def f(s, x):
@@ -106,9 +104,8 @@ class TensorAutomata(Automata):
 	def iterate_state_io(self):
 		for s1 in range(self.fsm.T.shape[1]):
 			for s2 in range(self.fsm.T.shape[1]):
-				for i in range(self.fsm.T.shape[0]):
-					for o in range(self.fsm.T.shape[0]):
-						yield (s1, s2, i, o)
+				for i in self.alphabet:
+					yield (s1, s2, i)
 
 	### Cambiar
 	def show(self, title="", verbose=0):
@@ -134,12 +131,12 @@ class TensorAutomata(Automata):
 	def to_nx_digraph(self):
 		edges = {}
 		### Mejorar los for anidados con un zip
-		for s1, s2, i, o in self.iterate_state_io():
-			if self.fsm.T[i][s1][s2] > 0.01 and self.fsm.R[i][s1][o] > 0.01:
+		for s1, s2, i in self.iterate_state_io():
+			if self.fsm.T[self.alphabet.index(i)][s1][s2] > 0.01:
 				if (s1, s2) in edges:
-					edges[(s1, s2)].append(f"\n{self.alphabet_in_ext[i]}/{self.alphabet_out_ext[o]}")
+					edges[(s1, s2)].append(f"\n{i}")
 				else:
-					edges[(s1, s2)] = [f"{self.alphabet_in_ext[i]}/{self.alphabet_out_ext[o]}"]
+					edges[(s1, s2)] = [f"{i}"]
 
 		# Create a directed graph
 		G = nx.DiGraph()
@@ -161,7 +158,7 @@ class TensorAutomata(Automata):
 		return G, G.nodes, edges
 
 	### Cambiar
-	def to_state_transducer(self):
+	def to_state_automata(self):
 		G, _, edges = self.to_nx_digraph()
 		states = {n:i for i, n in enumerate(G.nodes)}
 		
@@ -172,14 +169,13 @@ class TensorAutomata(Automata):
 					edges_dict[states[s1]] = []
 
 				for x in xs:
-					i, o = x.replace("\n", "").split("/")
-					edges_dict[states[s1]].append((i, states[s2], o))
+					# x = "{self.alphabet[i]}"
+					i = x.replace("\n", "")
+					edges_dict[states[s1]].append((i, states[s2]))
 
 		initial_state = states[int(jnp.argmax(self.fsm.s0))]
-		return StateAutomata(list(states.values()), edges_dict, initial_state, self.alphabet_in, self.alphabet_out)
-		
-
-
+		accepting_states = [s for s, a in enumerate(self.fsm.A) if int(a[1]) > 0.01]
+		return StateAutomata(list(states.values()), edges_dict, accepting_states, initial_state, self.alphabet)
 
 
 
@@ -206,6 +202,7 @@ class FunctionAutomata(Automata):
 
 class StateAutomata(Automata):
 	def __init__(self, states, edges, accepting_states, initial_state, alphabet):
+
 		super().__init__(alphabet, len(states))
 		self.states = states
 		self.edges = edges					# {s1: [(i, s_i), ...], s2:...}
@@ -220,10 +217,11 @@ class StateAutomata(Automata):
 			
 		return None, None
 
+
 	def __call__(self, inputs):
 		states = [self.initial_state]
 		for i in inputs:
-			state = self.get_edge(states[-1], i)	### [(i, s, o), ...]
+			state = self.get_edge(states[-1], i)	# [(i, s), ...]
 
 			### Falta chequear if it None
 			states.append(state)
@@ -246,7 +244,6 @@ class StateAutomata(Automata):
 		edges_dict = {}
 		for s1, edges in self.edges.items():
 			for i, s2, o in edges:
-				print(i, o)
 				if (s1, s2) in edges_dict:
 					
 					edges_dict[(s1, s2)].append(f"\n{i}/{o}")

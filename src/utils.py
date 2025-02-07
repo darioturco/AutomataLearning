@@ -46,6 +46,19 @@ def probabilistic_sample(alphabet, p=0.1, can_be_empty=False):
     res += random.choice(alphabet)
   return res
 
+def sample_dataset(f, alphabet, p=0.1, l=8):
+  xss = []
+  yss = []
+  for _ in range(l):
+    xs = probabilistic_sample(alphabet, p)
+    ys = ""
+    for i in range(len(xs)):
+      ys += '1' if f(xs[:i+1]) else '0'
+    xss.append(xs)
+    yss.append(ys)
+
+  return xss, yss
+
 def cartesian_product(list1, list2):
   return [(i, j) for i in list1 for j in list2]
 
