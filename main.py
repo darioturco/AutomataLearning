@@ -30,4 +30,35 @@ if __name__ == "__main__":
 	#automata_s.print()
 
 
-	measure_automata_performance_in_functions()
+	res = measure_automata_performance_in_functions(pr=0.75, le=10, run_n=2000)
+	print(res)
+
+	import matplotlib.pyplot as plt
+	import numpy as np
+
+	automatas, train_errors, test_errors, times = res
+
+	indices = np.array([i for i in range(max(len(train_errors), len(test_errors)))])
+
+	# El ancho de cada barra
+	width = 0.35
+
+	# Crear el gráfico de barras
+	fig, ax = plt.subplots()
+
+
+	# Gráficos de barras para cada lista
+	bar1 = ax.bar(indices - width / 2, train_errors, width, label='train')
+	bar2 = ax.bar(indices + width / 2, test_errors, width, label='test')
+
+	# Añadir etiquetas, título y leyenda
+	ax.set_xlabel('Índice')
+	ax.set_ylabel('Valores')
+	ax.set_title('Bar plot conjunto de dos listas')
+	ax.set_xticks(indices)
+	ax.set_xticklabels([f'{i}' for i in indices])
+	ax.legend()
+
+	# Mostrar el gráfico
+	plt.show()
+

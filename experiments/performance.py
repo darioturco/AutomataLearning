@@ -4,25 +4,38 @@ from tests.automatas.test_functions import *
 from src.transducers.transducer_learning import Learner as TranducerLearner
 from src.automatas.automata_learning import Learner as AutomataLearner
 from src.utils import sample_dataset
+import time
 
 
-def measure_automata_performance_in_functions():
-    problems = [problem1, problem2, problem3, problem4, problem5, problem6, problem7, problem8, problem9, problem10]
+def measure_automata_performance_in_functions(pr=0.75, le=10, run_n=1000):
+    problems = [problem1]#[problem1, problem2, problem3, problem4, problem5, problem6, problem7, problem8, problem9, problem10]
 
-    automatas = []
+    automatas, train_errors, test_errors, times = [], [], [], []
     for i, p in enumerate(problems):
         learner = AutomataLearner(p.max_states, p.alphabet)
-        xs, ys = sample_dataset(p.f, p.alphabet, 0.4, 10)
+        xs, ys = sample_dataset(p.f, p.alphabet, pr, le)
+        test_xs, test_ys = sample_dataset(p.f, p.alphabet, pr, le)
         xs = xs + p.xs
         ys = ys + p.ys
         print(f"Problem {i+1}:")
         print(f"    xs: {xs}")
         print(f"    ys: {ys}")
-        automata = learner.learn_from_dataset(xs, ys)
-        print(f"    Square Error Sum: {automata.error_square(xs, ys)}\n")
+
+
+        start_time = time.time() # Time start
+        automata = learner.learn_from_dataset(xs, ys, run_n)
+        end_time = time.time() # Time end
+
+        times.append(end_time - start_time)
+        train_errors.append(automata.error_square(xs, ys))
+        test_errors.append(automata.error_square(test_xs, test_ys))
         automatas.append(automata)
 
-    return automatas
+        print(f"    Time: {times[-1]:3f}")
+        print(f"    Train Square Error Sum: {train_errors[-1]}")
+        print(f"    Test Square Error Sum: {test_errors[-1]}\n")
+
+    return automatas, train_errors, test_errors, times
 
 def measure_transducer_performance_in_datasets():
     xss = [xs1, xs2, xs3, xs4, xs5, xs6, xs7, xs8, xs9, xs10]
