@@ -18,9 +18,9 @@ class Transducer:
 		self.separate_char = get_separate_char(alphabet_in + alphabet_out)
 		self.alphabet_in_ext = alphabet_in + [self.separate_char]
 		self.alphabet_out_ext = alphabet_out + [self.separate_char]
-		self.CHAR_IN = len(alphabet_in) + 1
-		self.CHAR_OUT = len(alphabet_out) + 1
-		self.STATE_MAX = max_state
+		self.char_n_in = len(alphabet_in) + 1
+		self.char_n_out = len(alphabet_out) + 1
+		self.max_state = max_state
 		
 	def error_square(self, xs, ys0, entropy_weight=0):
 		error = 0.0

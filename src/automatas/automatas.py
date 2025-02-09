@@ -14,12 +14,34 @@ TrainState = namedtuple('TrainState', 'params opt_state')
 TrainResult = namedtuple('TrainResult', 'params eval logs')
 
 class Automata:
+	@staticmethod
+	def _show(G, initial_state, accepting_states, path=None, title="", node_size=500):
+		color_map = ["green" if n in accepting_states else "lightblue" for n in G.nodes]
+		edge_map = ["black" if n == initial_state else "none" for n in G.nodes]
+		width_map = [4 if n == initial_state else 2 for n in G.nodes]
+
+		pos = nx.circular_layout(G)
+		nx.draw(G, pos, with_labels=True, node_color=color_map, edgecolors=edge_map, node_size=node_size, arrowsize=16,
+				linewidths=width_map, font_size=8)
+
+		# Draw edge labels
+		edge_labels = nx.get_edge_attributes(G, 'label')
+		nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=12, connectionstyle="arc3,rad=0.1")
+
+		plt.title(title)
+		if path is None:
+			plt.show()
+		else:
+			plt.savefig(path)
+
 	def __init__(self, alphabet, max_state):
 		self.alphabet = alphabet
 		self.separate_char = get_separate_char(alphabet)
 		self.alphabet_ext = alphabet + [self.separate_char]
-		self.CHAR = len(alphabet) + 1
-		self.STATE_MAX = max_state
+		self.char_n = len(alphabet) + 1
+		self.max_state = max_state
+
+
 
 	def error_square(self, xs, ys0, entropy_weight=0):
 		error = 0.0
@@ -35,6 +57,8 @@ class Automata:
 
 	def to_state_automata(self):
 		raise NotImplementedError
+
+
 
 	# Transducer Operations
 	def union(self, transducer):
@@ -92,57 +116,34 @@ class TensorAutomata(Automata):
 		print(f"Initial State = {self.fsm.s0.shape}")
 
 	### Cambiar
-	def get_edges_out(self, n):
-		edges = []
-		for i in range(self.fsm.R.shape[0]):
-			for j in range(self.fsm.R.shape[2]):
-				if self.fsm.R[i][n][j] > 0.1:
-					edges.append((self.alphabet_in_ext[i], self.alphabet_out_ext[j]))
-		return edges
-
-	### Cambiar
-	def iterate_state_io(self):
-		for s1 in range(self.fsm.T.shape[1]):
-			for s2 in range(self.fsm.T.shape[1]):
-				for i in self.alphabet:
-					yield (s1, s2, i)
-
-	### Cambiar
-	def show(self, title="", verbose=0):
+	def show(self, path=None, title="", node_size=500, verbose=0):
 		if verbose:
 			self.print()
 
-		G, _, _ = self.to_nx_digraph()
-
+		G, _, edges = self.to_nx_digraph()
 		initial_state = int(jnp.argmax(self.fsm.s0))
-		pos = nx.circular_layout(G)
-		color_map = ["green" if n == initial_state else "lightblue" for n in G.nodes]
-		nx.draw(G, pos, with_labels=True, node_color=color_map, node_size=500, arrowsize=16, font_size=8)
+		accepting_states = [s for s, a in enumerate(self.fsm.A) if int(a[1]) > 0.01]
 
-		# Draw edge labels
-		edge_labels = nx.get_edge_attributes(G, 'label')
-		nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
+		return self._show(G, initial_state, accepting_states, path=path, title=title, node_size=node_size)
 
-		# Show the plot
-		plt.title(title)
-		plt.show()
 
-	### Cambiar
+
+
 	def to_nx_digraph(self):
-		edges = {}
-		### Mejorar los for anidados con un zip
-		for s1, s2, i in self.iterate_state_io():
-			if self.fsm.T[self.alphabet.index(i)][s1][s2] > 0.01:
-				if (s1, s2) in edges:
-					edges[(s1, s2)].append(f"\n{i}")
+		edges_dict = {}
+		for s_ in range(self.max_state):
+			for i, c in enumerate(self.alphabet):
+				new_s = int(jnp.einsum('x,s,xst->t', jnp.eye(1, self.char_n, i)[0], jnp.eye(1, self.max_state, s_)[0], self.fsm.T).argmax())
+				if (s_, new_s) in edges_dict:
+					edges_dict[(s_, new_s)].append(f"\n{c}")
 				else:
-					edges[(s1, s2)] = [f"{i}"]
+					edges_dict[(s_, new_s)] = [f"{c}"]
 
 		# Create a directed graph
 		G = nx.DiGraph()
 
 		initial_state = int(jnp.argmax(self.fsm.s0))
-		for (s1, s2), edge in edges.items():
+		for (s1, s2), edge in edges_dict.items():
 			G.add_node(s1)
 			G.add_node(s2)
 			G.add_edge(s1, s2, label="".join(edge))
@@ -155,9 +156,8 @@ class TensorAutomata(Automata):
 			if n not in nodes_dfs:
 				G.remove_node(n)
 
-		return G, G.nodes, edges
+		return G, G.nodes, edges_dict
 
-	### Cambiar
 	def to_state_automata(self):
 		G, _, edges = self.to_nx_digraph()
 		states = {n:i for i, n in enumerate(G.nodes)}
@@ -169,7 +169,6 @@ class TensorAutomata(Automata):
 					edges_dict[states[s1]] = []
 
 				for x in xs:
-					# x = "{self.alphabet[i]}"
 					i = x.replace("\n", "")
 					edges_dict[states[s1]].append((i, states[s2]))
 
@@ -194,7 +193,7 @@ class FunctionAutomata(Automata):
 	def print(self):
 		raise NotImplementedError
 	
-	def show(self, title="", verbose=0):
+	def show(self, path=None, title="", node_size=500, verbose=0):
 		raise NotImplementedError
 
 	def to_state_automata(self):
@@ -202,7 +201,6 @@ class FunctionAutomata(Automata):
 
 class StateAutomata(Automata):
 	def __init__(self, states, edges, accepting_states, initial_state, alphabet):
-
 		super().__init__(alphabet, len(states))
 		self.states = states
 		self.edges = edges					# {s1: [(i, s_i), ...], s2:...}
@@ -231,44 +229,36 @@ class StateAutomata(Automata):
 	def run_fsm(self, x):
 		return self(x)
 
-	def print(self):
-		print(f"States: {self.states}")
-		print(f"Edges: {self.edges}")
-		print(f"Accepting Sates: {self.accepting_states}")
-		print(f"Initial State: {self.initial_state}")
-
-	### Cambiar
-	def show(self, title="", verbose=0):
+	def to_nx_digraph(self):
 		G = nx.DiGraph()
 
 		edges_dict = {}
 		for s1, edges in self.edges.items():
-			for i, s2, o in edges:
+			for i, s2 in edges:
 				if (s1, s2) in edges_dict:
-					
-					edges_dict[(s1, s2)].append(f"\n{i}/{o}")
+					edges_dict[(s1, s2)].append(f"\n{i}")
 				else:
-					edges_dict[(s1, s2)] = [f"{i}/{o}"]
+					edges_dict[(s1, s2)] = [f"{i}"]
 
 		for (s1, s2), edge in edges_dict.items():
 			G.add_node(s1)
 			G.add_node(s2)
 			G.add_edge(s1, s2, label="".join(edge))
 
-		initial_state = self.initial_state
-		pos = nx.circular_layout(G)
-		color_map = ["green" if n == initial_state else "lightblue" for n in G.nodes]
-		nx.draw(G, pos, with_labels=True, node_color=color_map, node_size=500, arrowsize=16, font_size=8)
+		return G, G.nodes, edges_dict
 
-		# Draw edge labels
-		edge_labels = nx.get_edge_attributes(G, 'label')
-		nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
+	def print(self):
+		print(f"States: {self.states}")
+		print(f"Edges: {self.edges}")
+		print(f"Accepting Sates: {self.accepting_states}")
+		print(f"Initial State: {self.initial_state}")
 
-		# Show the plot
-		plt.title(title)
-		plt.show()
+	def show(self, path=None, title="", node_size=500, verbose=0):
+		if verbose:
+			self.print()
 
-		return G, G.nodes, edges
+		G, _, edges = self.to_nx_digraph()
+		return self._show(G, self.initial_state, self.accepting_states, path=path, title=title, node_size=node_size)
 
 	def to_state_automata(self):
 		return self

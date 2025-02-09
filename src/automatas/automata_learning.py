@@ -22,8 +22,7 @@ def loss_f(params, x, y0, entropy_weight, hard=False):
 
 
 class Learner:
-	def __init__(self, max_states, alphabet, entropy_weight=0, lazy_bias=1.0, train_step_n=1000,
-				 epsilon_error=0.000001, learning_rate=0.25, b1=0.5, b2=0.5, verbose=0):
+	def __init__(self, max_states, alphabet, entropy_weight=0, lazy_bias=1.0, train_step_n=1000, learning_rate=0.25, b1=0.5, b2=0.5, verbose=0):
 		self.target_transducer = None
 		self.separate_char = None
 		self.max_length_sec = 10  ### Cambiar
@@ -39,7 +38,6 @@ class Learner:
 		self.entropy_weight = entropy_weight
 		self.lazy_bias = lazy_bias
 		self.train_step_n = train_step_n
-		self.epsilon_error = epsilon_error
 		self.optimizer = optax.adam(learning_rate, b1, b2)
 		self.verbose = verbose
 		self.loss_f = None
@@ -54,6 +52,50 @@ class Learner:
 		return TrainState(params, opt_state), stats
 
 	def run(self, key):
+		params0 = self.init_fsm(key)
+		opt_state = self.optimizer.init(params0)
+		train_state = TrainState(params0, opt_state)
+
+		def body_f(val):
+			i, train_state_ = val
+			train_state_, stats_ = self.train_step(train_state_)
+			return i + 1, train_state_
+
+		_, train_state, = jax.lax.while_loop(lambda val: val[0] < self.train_step_n, body_f, (0, train_state))
+
+		_, evaluation = self.loss_f(train_state.params, hard=True)
+		return TrainResult(train_state.params, evaluation, [])
+
+	"""
+	def run(self, key):
+		logs = [None] * self.train_step_n
+		params0 = self.init_fsm(key)
+		opt_state = self.optimizer.init(params0)
+		train_state = TrainState(params0, opt_state)
+		stats = Stats(total=1.0, error=1.0, entropy=1.0, states_used=1.0)
+
+		def body_f(val):
+			i, train_state_, train_best, error = val
+			train_state_, stats_ = self.train_step(train_state_)
+			new_error, _ = self.loss_f(train_state_.params, hard=True)
+
+			error = jax.lax.cond(new_error<error, lambda : new_error, lambda : error)
+			error = jax.lax.cond(i > self.train_step_n, lambda: 0.0, lambda: error)
+			train_best = jax.lax.cond(new_error<error, lambda :train_state_, lambda : train_best)
+			return i+1, train_state_, train_best, error
+
+		def cond_f(val):
+			i, _, _, error = val
+			return error > 0.01
+
+		i, train_state, stats, logs = jax.lax.while_loop(cond_f, body_f, (0, train_state, train_state, 1.0))
+
+		_, evaluation = self.loss_f(train_state.params, hard=True)
+		return TrainResult(train_state.params, evaluation, logs)
+	"""
+
+	"""
+	def run(self, key):
 		logs = []
 		params0 = self.init_fsm(key)
 		opt_state = self.optimizer.init(params0)
@@ -63,8 +105,11 @@ class Learner:
 			train_state, stats = self.train_step(train_state)
 			logs.append(stats)
 
+			### Parar si stats.error es 0
+
 		_, evaluation = self.loss_f(train_state.params, hard=True)
 		return TrainResult(train_state.params, evaluation, logs)
+	"""
 
 	def init_fsm(self, key, noise=1e-3):
 		k1, k2, k3 = jax.random.split(key, 3)
@@ -89,6 +134,7 @@ class Learner:
 
 		return True, None
 
+	### Pasar a Automata
 	def generate_input(self, n):
 		return "".join([random.choice(self.target_transducer.alphabet_in) for _ in range(n)] + [self.separate_char])
 
@@ -117,28 +163,28 @@ class Learner:
 		self.xs = [self.generate_input(random.randint(1, self.max_length_sec))]
 		self.ys = [self.target_transducer.run_fsm(self.xs[0])]
 
-		transducer = None
+		automata = None
 		for i in range(budget):
 			keys = self.generate_keys(run_n)
 			x_test, y_test = self.generate_xy()
 			T, R, s0 = self.train_fsm(keys, x_test, y_test)
-			transducer = TensorAutomata(T, R, s0, self.alphabet, self.max_states)
+			automata = TensorAutomata(T, R, s0, self.alphabet, self.max_states)
 
 			if verbose:
 				print(f"Iteration: {i}")
 				print(f"xs: {x_test}")
 				print(f"ys: {y_test}")
-				print(f"y_predict: {transducer.run_fsm(x_test)}")
+				print(f"y_predict: {automata.run_fsm(x_test)}")
 				print(f"Error: {self.r.eval.error.min()}")
 
-			res, counter = self.equivalence_query(transducer)
+			res, counter = self.equivalence_query(automata)
 			if res:
 				break
 
 			self.xs.append(counter)
 			self.ys.append(self.target_transducer.run_fsm(counter))
 
-		return transducer
+		return automata
 
 	def learn_from_dataset(self, xs, ys, run_n=1000, verbose=0):
 		assert len(xs) == len(ys), "Error"
