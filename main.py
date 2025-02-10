@@ -1,6 +1,6 @@
 #from src.L import *
 from src.automatas.automata_learning import Learner as AutomataLearner
-from experiments.performance import measure_automata_performance_in_functions, measure_transducer_performance_in_datasets
+from experiments.performance_automatas import measure_automata_performance_in_functions
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 import jax.numpy as jnp
 from jax import nn
 import random
+import pickle
 
 full_alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ #.,*()[]{}@!$^&-+?_=|`~<>"
 lambda_char = 'λ'
@@ -47,18 +48,25 @@ def probabilistic_sample(alphabet, p=0.1, can_be_empty=False):
   return res
 
 def sample_dataset(f, alphabet, p=0.1, l=8):
-  xss = []
-  yss = []
-  for _ in range(l):
-    xs = probabilistic_sample(alphabet, p)
-    ys = ""
-    for i in range(len(xs)):
-      ys += '1' if f(xs[:i+1]) else '0'
-    xss.append(xs)
-    yss.append(ys)
+  xss = set()
+  i = 0
+  while len(xss) < l and i < l*1000:  # Emergency exit when 1000 repeated string occurs
+    xss.add(probabilistic_sample(alphabet, p))
+    i = i+1
 
-  return xss, yss
+  yss = ["".join(['1' if f(xs[:i+1]) else '0' for i in range(len(xs))]) for xs in xss]
+
+  return list(xss), yss
 
 def cartesian_product(list1, list2):
   return [(i, j) for i in list1 for j in list2]
+
+def save_pickle(data, path):
+  with open(path, "wb") as f:
+    pickle.dump(data, f)
+
+def load_pickle(path):
+  with open(path, "rb") as f:
+    loaded_variable = pickle.load(f)
+  return loaded_variable
 

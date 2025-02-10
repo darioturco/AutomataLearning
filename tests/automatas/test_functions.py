@@ -2,7 +2,7 @@ import re
 
 
 class Problem:
-    def __init__(self, f, alphabet, xs, num, max_states=8):
+    def __init__(self, f, alphabet, xs, max_states=8):
         self.f = f
         self.alphabet = alphabet
         self.max_states = max_states
@@ -30,7 +30,6 @@ def f4(x):
 def f5(x):
     """ 5: Return if the string start with a and repeats 0 of more times the string 'ab'"""
     return bool(re.fullmatch(r'a(ab)*', x))
-
 
 def f6(x):
     """ 6: Return if the string is equal to "2025" """
@@ -94,4 +93,3 @@ problem13 = Problem(f13, ['a', 'b'], ["aaaa", "aaaabaaaa", "abaaa", "aaaaaaa"], 
 problem14 = Problem(f14, ['a'], ["aa", "aaaaaaaa"], 8)
 problem15 = Problem(f15, ['a', 'b'], ["aa", "bb", "abaa", "babb", "abababab"], 8)
 problem16 = Problem(f16, ['a', 'b'], ["aa", "bb", "abaa", "babb", "abababab"], 8)
-

@@ -51,6 +51,7 @@ class Learner:
 		params = optax.apply_updates(params, updates)
 		return TrainState(params, opt_state), stats
 
+	"""
 	def run(self, key):
 		params0 = self.init_fsm(key)
 		opt_state = self.optimizer.init(params0)
@@ -66,6 +67,7 @@ class Learner:
 		_, evaluation = self.loss_f(train_state.params, hard=True)
 		return TrainResult(train_state.params, evaluation, [])
 
+	"""
 	"""
 	def run(self, key):
 		logs = [None] * self.train_step_n
@@ -94,7 +96,7 @@ class Learner:
 		return TrainResult(train_state.params, evaluation, logs)
 	"""
 
-	"""
+
 	def run(self, key):
 		logs = []
 		params0 = self.init_fsm(key)
@@ -109,7 +111,7 @@ class Learner:
 
 		_, evaluation = self.loss_f(train_state.params, hard=True)
 		return TrainResult(train_state.params, evaluation, logs)
-	"""
+
 
 	def init_fsm(self, key, noise=1e-3):
 		k1, k2, k3 = jax.random.split(key, 3)
