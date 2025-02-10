@@ -51,50 +51,6 @@ class Learner:
 		params = optax.apply_updates(params, updates)
 		return TrainState(params, opt_state), stats
 
-	"""
-	def run(self, key):
-		params0 = self.init_fsm(key)
-		opt_state = self.optimizer.init(params0)
-		train_state = TrainState(params0, opt_state)
-
-		def body_f(val):
-			i, train_state_ = val
-			train_state_, stats_ = self.train_step(train_state_)
-			return i + 1, train_state_
-
-		_, train_state, = jax.lax.while_loop(lambda val: val[0] < self.train_step_n, body_f, (0, train_state))
-
-		_, evaluation = self.loss_f(train_state.params, hard=True)
-		return TrainResult(train_state.params, evaluation, [])
-
-	"""
-	"""
-	def run(self, key):
-		logs = [None] * self.train_step_n
-		params0 = self.init_fsm(key)
-		opt_state = self.optimizer.init(params0)
-		train_state = TrainState(params0, opt_state)
-		stats = Stats(total=1.0, error=1.0, entropy=1.0, states_used=1.0)
-
-		def body_f(val):
-			i, train_state_, train_best, error = val
-			train_state_, stats_ = self.train_step(train_state_)
-			new_error, _ = self.loss_f(train_state_.params, hard=True)
-
-			error = jax.lax.cond(new_error<error, lambda : new_error, lambda : error)
-			error = jax.lax.cond(i > self.train_step_n, lambda: 0.0, lambda: error)
-			train_best = jax.lax.cond(new_error<error, lambda :train_state_, lambda : train_best)
-			return i+1, train_state_, train_best, error
-
-		def cond_f(val):
-			i, _, _, error = val
-			return error > 0.01
-
-		i, train_state, stats, logs = jax.lax.while_loop(cond_f, body_f, (0, train_state, train_state, 1.0))
-
-		_, evaluation = self.loss_f(train_state.params, hard=True)
-		return TrainResult(train_state.params, evaluation, logs)
-	"""
 
 
 	def run(self, key):
