@@ -30,7 +30,7 @@ def measure_automata_performance_in_functions(pr=0.75, le=10, run_n=1000, entrop
         end_time = time.time() # Time end
 
         times[p.num] = end_time - start_time
-        train_errors[p.num] =automata.error_square(xs, ys)
+        train_errors[p.num] = automata.error_square(xs, ys)
         test_errors[p.num] = automata.error_square(test_xs, test_ys)
         automatas[p.num] = automata
 

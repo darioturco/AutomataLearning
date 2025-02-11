@@ -54,7 +54,8 @@ class Learner:
 		opt_state = self.optimizer.init(params0)
 		train_state = TrainState(params0, opt_state)
 
-		for _ in range(self.train_step_n):
+		for i in range(self.train_step_n):
+			#print(i)
 			train_state, stats = self.train_step(train_state)
 			logs.append(stats)
 
@@ -87,9 +88,13 @@ class Learner:
 		key = jax.random.PRNGKey(1)
 		return jax.random.split(key, run_n)
 
-	def train_fsm(self, keys, x, y):
-		x, y = prepare_str(x, self.alphabet_ext), prepare_str(y, ['0', '1', self.separate_char])
-		self.loss_f = partial(loss_f, x=x, y0=y, entropy_weight=self.entropy_weight)
+	def train_fsm(self, keys, x, y, concatenate=True):
+		alphabet_in = self.alphabet_ext if concatenate else self.alphabet
+		alphabet_out = ['0', '1'] + ([self.separate_char] if concatenate else [])
+		xs = jnp.array([prepare_str(x_, alphabet_in) for x_ in x])	### Va a explotar cuando concatenate no sea True
+		ys = jnp.array([prepare_str(y_, alphabet_out) for y_ in y])
+		#xs, ys = , prepare_str(y, alphabet_out)
+		self.loss_f = partial(loss_f, x=xs, y0=ys, entropy_weight=self.entropy_weight)
 		self.r = jax.vmap(self.run)(keys)
 		best_i = (self.r.eval.states_used + self.r.eval.error * 10000).argmin()
 		best_params = jax.tree_util.tree_map(lambda a: a[best_i], self.r.params)
@@ -130,13 +135,15 @@ class Learner:
 
 		return automata
 
-	def learn_from_dataset(self, xs, ys, run_n=1000, verbose=0):
+	def learn_from_dataset(self, xs, ys, run_n=1000, concatenate=True, verbose=0):
 		assert len(xs) == len(ys), "Error"
 
 		keys = self.generate_keys(run_n)
-		x = "".join([x + self.separate_char for x in xs])
-		y = "".join([y + self.separate_char for y in ys])
-		T, A, s0 = self.train_fsm(keys, x, y)
+		if concatenate:
+			xs = ["".join([x + self.separate_char for x in xs])]
+			ys = ["".join([y + self.separate_char for y in ys])]
+
+		T, A, s0 = self.train_fsm(keys, xs, ys, concatenate)
 
 		return TensorAutomata(T, A, s0, self.alphabet, self.max_states)
 
