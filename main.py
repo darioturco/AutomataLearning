@@ -20,7 +20,7 @@ if __name__ == "__main__":
 	#automata_s = automata.to_state_automata()
 	#automata_s.print()
 
-	res = measure_automata_performance_in_functions(pr=0.75, le=10, run_n=5000, train_step_n=2000, save=False)
+	res = measure_automata_performance_in_functions(pr=0.75, le=10, run_n=2500, train_step_n=3000, save=False)
 	automatas, train_errors, test_errors, times = res
 
 	automatas[0].show()
