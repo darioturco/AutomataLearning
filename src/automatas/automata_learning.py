@@ -70,15 +70,17 @@ class Learner:
 		s0 = jax.random.normal(k3, [self.max_states]) * noise
 		return Params(T, A, s0)
 
-	def contain_query(self, x):
-		return self.target_automata(x)
+	@staticmethod
+	def contain_query(self, x, target_automata):
+		return target_automata(x)
 
-	def equivalence_query(self, automata, t, p=0.7):
+	@staticmethod
+	def equivalence_query(self, automata, target_automata, t, p=0.7):
 		to_test = []
 		for _ in range(t):
-			test = probabilistic_sample(self.target_automata.alphabet, p=p)
+			test = probabilistic_sample(target_automata.alphabet, p=p)
 			to_test.append(test)
-			if self.target_automata.run_fsm(test) != automata.run_fsm(test):
+			if target_automata.run_fsm(test) != automata.run_fsm(test):
 				return False, test
 
 		return True, None
@@ -101,7 +103,7 @@ class Learner:
 		return "".join(self.xs), "".join(self.ys)
 
 	def learn(self, target_automata, budget, t, p, run_n=1000, verbose=0):
-		### Assert alphabet in target_automata is the same in self
+		assert target_automata.alphabet == self.alphabet, "Error, alphabet should have the same length."
 
 		self.target_automata = target_automata
 		self.xs = [probabilistic_sample(self.target_automata.alphabet, t, p)]

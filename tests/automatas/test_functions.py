@@ -1,5 +1,5 @@
 import re
-
+from src.automatas.automatas import FunctionAutomata
 
 class Problem:
     def __init__(self, f, alphabet, xs, max_states=8):
@@ -10,6 +10,7 @@ class Problem:
         self.ys = ["".join([('1' if f(x[:i + 1]) else '0') for i in range(len(x))]) for x in xs]
         self.description = f.__doc__
         self.num = int(f.__doc__[:f.__doc__.index(":")])
+        self.target_automata = FunctionAutomata(f, alphabet)
 
 def f1(x):
     """ 1: Accepts only string that end with 'a'"""

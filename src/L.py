@@ -1,131 +1,150 @@
-from collections import defaultdict
+from src.automatas.automatas import StateAutomata
+from src.utils import lambda_char, probabilistic_sample
 
-class DFA:
-    """Defines a deterministic finite automaton (for simulation and hypothesis)."""
-    def __init__(self, states, alphabet, transitions, start_state, accept_states):
-        self.states = states
+# Algorthm from "Learning regular sets from queries and counterexamples"
+class LStartLearner:
+    def __init__(self, alphabet, verbose=0):
         self.alphabet = alphabet
-        self.transitions = transitions
-        self.start_state = start_state
-        self.accept_states = accept_states
+        self.verbose = verbose
 
-    def accepts(self, string):
-        """Simulates the DFA for a given string."""
-        state = self.start_state
-        for symbol in string:
-            state = self.transitions.get((state, symbol))
-            if state is None:
-                return False
-        return state in self.accept_states
+        self.S = []
+        self.E = []
+        self.table = {}
 
-class Teacher:
-    """Defines the teacher/oracle with a target DFA."""
-    def __init__(self, target_dfa):
-        self.target_dfa = target_dfa
+    @staticmethod
+    def contain_query(x, target_automata):
+        return target_automata(x)[0]
 
-    def membership_query(self, string):
-        """Checks if the string is in the target language."""
-        return self.target_dfa.accepts(string)
+    @staticmethod
+    def equivalence_query(automata, target_automata, t=100, p=0.7):
+        to_test = []
+        for _ in range(t):
+            test = probabilistic_sample(target_automata.alphabet, p=p)
+            to_test.append(test)
+            if target_automata.run_fsm(test)[0] != automata.run_fsm(test):
+                return False, test
 
-    def equivalence_query(self, hypothesis_dfa):
-        """Checks if the hypothesis DFA matches the target DFA."""
-        # Compare the target DFA and hypothesis on all strings (up to a reasonable length).
-        # This is simplified for educational purposes.
-        max_length = 10
-        for length in range(max_length + 1):
-            for string in self.generate_strings(hypothesis_dfa.alphabet, length):
-                if self.target_dfa.accepts(string) != hypothesis_dfa.accepts(string):
-                    return False, string
         return True, None
 
-    def generate_strings(self, alphabet, length):
-        """Generates all strings over the given alphabet up to a certain length."""
-        if length == 0:
-            return [""]
-        shorter_strings = self.generate_strings(alphabet, length - 1)
-        return shorter_strings + [s + a for s in shorter_strings for a in alphabet]
+    def get_string_from_row(self, row):
+        for s, v in self.table.items():
+            if tuple(v) == row:
+                if s == lambda_char:
+                    return ""
+                else:
+                    return s
 
-class LStarLearner:
-    """Implements the L* algorithm for DFA learning."""
-    def __init__(self, alphabet, teacher):
-        self.alphabet = alphabet
-        self.teacher = teacher
-        self.table = {"S": set(), "E": set(), "T": defaultdict(bool)}
-        self.table["S"].add("")
-        self.table["E"].add("")
+        return ""
 
-    def update_table(self):
-        """Populates the observation table using membership queries."""
-        for s in self.table["S"]:
-            for e in self.table["E"]:
-                self.table["T"][(s, e)] = self.teacher.membership_query(s + e)
 
-    def is_closed(self):
-        """Checks if the table is closed."""
-        for s in self.table["S"]:
+    def build_automata(self):
+        print("Building Atomata: ")
+        print(self.table)
+
+        states_t = list({tuple(v) for _, v in self.table.items()})
+        states_dict = {st: i for i, st in enumerate(states_t)}
+        states = [states_dict[st] for st in states_t]
+
+        edges =  {}        # {s1: [(i, s_i), ...], s2:...}
+        for st, i in states_dict.items():
+            edges[i] = []
             for a in self.alphabet:
-                row = tuple(self.table["T"][(s + a, e)] for e in self.table["E"])
-                if row not in [tuple(self.table["T"][(s_, e)] for e in self.table["E"]) for s_ in self.table["S"]]:
-                    return False, s + a
-        return True, None
+                new_row = self.get_string_from_row(st) + a
+                if new_row in self.table:
+                    state = states_dict[self.table[new_row]]
+                    edges[i].append((a, state))
+        initial_state = states_dict[tuple(self.table[lambda_char])]
+        accepting_states = [states_dict[s] for s in states_t if s[0] == True]
+
+        return StateAutomata(states, edges, accepting_states, initial_state, self.alphabet)
+
+    def is_different_for_all_rows(self, row):
+        for s in self.S:
+            if tuple(row) == tuple(self.table[s]):
+                return False
+        return True
 
     def is_consistent(self):
-        """Checks if the table is consistent."""
-        rows = {}
-        for s in self.table["S"]:
-            rows[s] = tuple(self.table["T"][(s, e)] for e in self.table["E"])
-        for s1 in self.table["S"]:
-            for s2 in self.table["S"]:
-                if rows[s1] == rows[s2]:
-                    for a in self.alphabet:
-                        row1 = tuple(self.table["T"][(s1 + a, e)] for e in self.table["E"])
-                        row2 = tuple(self.table["T"][(s2 + a, e)] for e in self.table["E"])
-                        if row1 != row2:
-                            return False, (s1, s2, a)
-        return True, None
+        pass
 
-    def refine_table(self, counterexample):
-        """Refines the observation table with a counterexample."""
-        for i in range(len(counterexample) + 1):
-            self.table["S"].add(counterexample[:i])
-        self.update_table()
 
-    def build_hypothesis(self):
-        """Constructs a DFA from the observation table."""
-        states = {tuple(self.table["T"][(s, e)] for e in self.table["E"]): i for i, s in enumerate(self.table["S"])}
-        start_state = states[tuple(self.table["T"][("", e)] for e in self.table["E"])]
-        accept_states = {states[tuple(self.table["T"][(s, e)] for e in self.table["E"])] for s in self.table["S"] if self.table["T"][(s, "")]}
-        transitions = {}
-        for s in self.table["S"]:
-            for a in self.alphabet:
-                row = tuple(self.table["T"][(s + a, e)] for e in self.table["E"])
-                if row in states:
-                    transitions[(states[tuple(self.table["T"][(s, e)] for e in self.table["E"])], a)] = states[row]
-        return DFA(set(states.values()), self.alphabet, transitions, start_state, accept_states)
+    def is_closed(self):
+        for s1 in self.S:
+            if self.is_different_for_all_rows(s1):
+                return False
 
-    def learn(self):
-        """Main learning loop."""
-        self.update_table()
-        while True:
-            # Ensure closure
-            closed, witness = self.is_closed()
-            if not closed:
-                self.table["S"].add(witness)
-                self.update_table()
-                continue
+        return True
 
-            # Ensure consistency
-            consistent, inconsistency = self.is_consistent()
-            if not consistent:
-                s1, s2, a = inconsistency
-                self.table["E"].add(a)
-                self.update_table()
-                continue
 
-            # Build hypothesis DFA
-            hypothesis = self.build_hypothesis()
-            equivalent, counterexample = self.teacher.equivalence_query(hypothesis)
-            if equivalent:
-                return hypothesis
-            self.refine_table(counterexample)
+    @staticmethod
+    def concat(s1, s2, s3=""):
+        if s1 == lambda_char:
+            s1 = ''
+        if s2 == lambda_char:
+            s2 = ''
+        if s3 == lambda_char:
+            s3 = ''
+        return s1+s2+s3
+
+    def learn(self, target_automata, t=100, p=0.7):
+        assert target_automata.alphabet == self.alphabet, "Error, alphabet should have the same length."
+
+        self.E = {lambda_char}  # columns
+        self.S = {lambda_char}.union(set(self.alphabet))  # rows
+        self.table = {a: [self.contain_query(lambda_char, target_automata)] for a in self.alphabet + [lambda_char]}
+
+        automata = self.build_automata()
+        eq, example = self.equivalence_query(automata, target_automata, t, p)
+        example = None
+
+        while not eq:
+            if example is not None:
+                for i in range(len(example)):
+                    self.S.add(example[:i+1])
+                    self.table[example[:i+1]] = [self.contain_query(self.concat(example[:i+1], p), target_automata) for p in self.E]
+
+            while not self.is_consistent() or self.is_closed():
+                if not self.is_consistent():
+                    for s1 in self.S:
+                        for s2 in self.S:
+                            for a in self.alphabet:
+                                for e in self.E:
+                                    if tuple(self.table[s1]) == tuple(self.table[s2]) and self.table[self.concat(s1,a,e)] != self.table[self.concat(s2,a,e)]:
+                                        self.E.add(self.concat(s1,a))
+                                        for r in self.S:
+                                            self.table[r] = [self.contain_query(self.concat(r, p), target_automata) for p in self.E]
+
+                if not self.is_closed():
+                    for s1 in self.S:
+                        for a in self.alphabet:
+                            new_s = self.concat(s1, a)
+                            if self.is_different_for_all_rows(new_s):
+                                self.S.add(new_s)
+                                self.table[new_s] = [self.contain_query(self.concat(new_s, p), target_automata) for p in self.E]
+
+            automata = self.build_automata()
+            eq, example = self.equivalence_query(automata, target_automata, t, p)
+
+        return automata
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

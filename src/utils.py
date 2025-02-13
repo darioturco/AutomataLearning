@@ -48,6 +48,8 @@ def probabilistic_sample(alphabet, p=0.1, can_be_empty=False):
   return res
 
 def sample_dataset(f, alphabet, p=0.1, l=8):
+  if f is None:
+    f = lambda x: 0
   xss = set()
   i = 0
   while len(xss) < l and i < l*1000:  # Emergency exit when 1000 repeated string occurs
@@ -57,6 +59,25 @@ def sample_dataset(f, alphabet, p=0.1, l=8):
   yss = ["".join(['1' if f(xs[:i+1]) else '0' for i in range(len(xs))]) for xs in xss]
 
   return list(xss), yss
+
+### Completar
+def probability_of_word(l, mu, alphabet):
+  return mu * ((1 - mu) / len(alphabet)) ** len(l)
+
+def language_distance(l1, l2, mu, alphabet):
+  l = set(l1).symmetric_difference(set(l2))
+  return sum([probability_of_word(s, mu, alphabet) for s in l])
+
+### Completar
+def estimate_language_distance(automata1, automata2, mu, alpha, gamma, alphabet):
+  max_l = round(jnp.exp(2/gamma) / (2 * alpha ** 2)) + 1
+  xs, _ = sample_dataset(None, alphabet, p=mu, l=max_l)
+  l1, l2 = [], []
+  for s in xs:
+    if automata1.run_fsm(s):
+      l1.append(s)
+    if automata2.run_fsm(s):
+      l2.append(s)
 
 def cartesian_product(list1, list2):
   return [(i, j) for i in list1 for j in list2]

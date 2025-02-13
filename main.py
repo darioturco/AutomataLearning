@@ -1,6 +1,7 @@
-#from src.L import *
+from src.L import LStartLearner
 from src.automatas.automata_learning import Learner as AutomataLearner
 from experiments.performance_automatas import measure_automata_performance_in_functions
+from tests.automatas.test_functions import problem1
 
 
 if __name__ == "__main__":
@@ -20,10 +21,23 @@ if __name__ == "__main__":
 	#automata_s = automata.to_state_automata()
 	#automata_s.print()
 
+	##### Performance experiment #####
 	res = measure_automata_performance_in_functions(pr=0.75, le=10, run_n=2500, train_step_n=3000, save=False)
 	automatas, train_errors, test_errors, times = res
-
 	automatas[0].show()
+
+	##### L Start #####
+
+
+	#learner = LStartLearner(problem1.alphabet)
+	#automata = learner.learn(problem1.target_automata)
+	#automata.show()
+
+	# print(f"    Square Error Sum: {automata.error_square(xs, ys)}\n")
+	# automata_s = automata.to_state_automata()
+	# automata_s.print()
+
+
 
 
 

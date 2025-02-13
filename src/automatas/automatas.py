@@ -13,6 +13,11 @@ Stats = namedtuple('Stats', 'total error entropy states_used')
 TrainState = namedtuple('TrainState', 'params opt_state')
 TrainResult = namedtuple('TrainResult', 'params eval logs')
 
+### Hay que revisar esto:
+###  __call__ tiene que devolver (lista de outputs, lista de estados)
+### run_fsm tiene que devolver un solo booleano
+### despues hay que swapear estas dos funciones
+
 class Automata:
 	@staticmethod
 	def _show(G, initial_state, accepting_states, path=None, title="", node_size=500):
@@ -53,6 +58,9 @@ class Automata:
 		return error
 
 	def __call__(self, inputs):
+		raise NotImplementedError
+
+	def run_fsm(self, x):
 		raise NotImplementedError
 
 	def to_state_automata(self):
@@ -96,7 +104,8 @@ class TensorAutomata(Automata):
 
 	def run_fsm(self, x):
 		y, _ = self(x)
-		return decode_str(y, ['0', '1', self.separate_char])
+
+		return decode_str(y, ['0', '1', self.separate_char]) ### Tiene que devolver un booleano
 
 	### Cambiar
 	def show_fsm_story(xx, yy, ss):
@@ -188,7 +197,7 @@ class FunctionAutomata(Automata):
 		return self.f(inputs), None
 
 	def run_fsm(self, x):
-		return self(x)
+		return self(x)[0]
 	
 	def print(self):
 		raise NotImplementedError
