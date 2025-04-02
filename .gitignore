@@ -1,1 +1,7 @@
 **/__pycache__
+**/plots
+**/pickle
+**/graphs
+.idea
+*.gv
+*.gv.pdf

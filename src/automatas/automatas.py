@@ -1,9 +1,10 @@
 from collections import namedtuple
-from graphviz import Digraph
+import graphviz
 import networkx as nx
 import matplotlib.pyplot as plt
 import jax
 import jax.numpy as jnp
+from graphviz import Source
 
 from src.utils import decode_fsm, entropy, prepare_str, get_separate_char, decode_str, cartesian_product
 
@@ -19,26 +20,6 @@ TrainResult = namedtuple('TrainResult', 'params eval logs')
 ### despues hay que swapear estas dos funciones
 
 class Automata:
-	@staticmethod
-	def _show(G, initial_state, accepting_states, path=None, title="", node_size=500):
-		color_map = ["green" if n in accepting_states else "lightblue" for n in G.nodes]
-		edge_map = ["black" if n == initial_state else "none" for n in G.nodes]
-		width_map = [4 if n == initial_state else 2 for n in G.nodes]
-
-		pos = nx.circular_layout(G)
-		nx.draw(G, pos, with_labels=True, node_color=color_map, edgecolors=edge_map, node_size=node_size, arrowsize=16,
-				linewidths=width_map, font_size=8)
-
-		# Draw edge labels
-		edge_labels = nx.get_edge_attributes(G, 'label')
-		nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=12, connectionstyle="arc3,rad=0.1")
-
-		plt.title(title)
-		if path is None:
-			plt.show()
-		else:
-			plt.savefig(path)
-
 	def __init__(self, alphabet, max_state):
 		self.alphabet = alphabet
 		self.separate_char = get_separate_char(alphabet)
@@ -107,33 +88,14 @@ class TensorAutomata(Automata):
 
 		return decode_str(y, ['0', '1', self.separate_char]) ### Tiene que devolver un booleano
 
-	### Cambiar
-	def show_fsm_story(xx, yy, ss):
-		G = Digraph(graph_attr={'rankdir':'LR'}, node_attr={'shape':'circle'})
-		G.node(ss[0], penwidth='3px')
-		edges = set(zip(xx, yy, ss[:-1], ss[1:]))
-
-		for x, y, a, b in edges:
-			G.edge(a, b, '%s/%s'%(x, y))
-			if len(set(ss)) > 2:
-				G.engine = 'circo'
-		return G
-
 	def print(self):
 		print(f"T = {self.fsm.T.shape}")
 		print(f"R = {self.fsm.A.shape}")
 		print(f"Initial State = {self.fsm.s0.shape}")
 
-	### Cambiar
 	def show(self, path=None, title="", node_size=500, verbose=0):
-		if verbose:
-			self.print()
-
-		G, _, edges = self.to_nx_digraph()
-		initial_state = int(jnp.argmax(self.fsm.s0))
-		accepting_states = [s for s, a in enumerate(self.fsm.A) if int(a[1]) > 0.01]
-
-		return self._show(G, initial_state, accepting_states, path=path, title=title, node_size=node_size)
+		state_automata = self.to_state_automata()
+		state_automata.show(path=None, title="", node_size=500, verbose=0)
 
 
 
@@ -266,8 +228,18 @@ class StateAutomata(Automata):
 		if verbose:
 			self.print()
 
-		G, _, edges = self.to_nx_digraph()
-		return self._show(G, self.initial_state, self.accepting_states, path=path, title=title, node_size=node_size)
+		graph = graphviz.Digraph('Automata')
+
+		for i, s in enumerate(self.states):
+			shape = 'doublecircle' if s == self.initial_state else 'circle'
+			color = 'green' if s in self.accepting_states else 'white'
+			graph.node(str(s), shape=shape, color='black', fillcolor=color, style='filled')
+
+		for s1, xs in self.edges.items():
+			for c, s2 in xs:
+				graph.edge(str(s1), str(s2), label=str(c))
+
+		graph.render(directory='graphs', view=True)
 
 	def to_state_automata(self):
 		return self
