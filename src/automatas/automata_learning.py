@@ -20,7 +20,7 @@ def loss_f(params, x, y0, entropy_weight, hard=False):
 
 
 class Learner:
-	def __init__(self, max_states, alphabet, entropy_weight=0, lazy_bias=1.0, train_step_n=1000, learning_rate=0.25, b1=0.5, b2=0.5, verbose=0):
+	def __init__(self, max_states, alphabet, entropy_weight=0, lazy_bias=1.0, train_step_n=1000, run_n=1000, learning_rate=0.25, b1=0.5, b2=0.5, verbose=0):
 		self.target_automata = None
 		self.separate_char = None
 		self.xs = []
@@ -35,6 +35,7 @@ class Learner:
 		self.entropy_weight = entropy_weight
 		self.lazy_bias = lazy_bias
 		self.train_step_n = train_step_n
+		self.run_n = run_n
 		self.optimizer = optax.adam(learning_rate, b1, b2)
 		self.verbose = verbose
 		self.loss_f = None
@@ -132,10 +133,10 @@ class Learner:
 
 		return automata
 
-	def learn_from_dataset(self, xs, ys, run_n=1000, verbose=0):
+	def learn_from_dataset(self, xs, ys, verbose=0):
 		assert len(xs) == len(ys), "Error"
 
-		keys = self.generate_keys(run_n)
+		keys = self.generate_keys(self.run_n)
 		x = "".join([x + self.separate_char for x in xs])
 		y = "".join([y + self.separate_char for y in ys])
 		T, A, s0 = self.train_fsm(keys, x, y)

@@ -15,7 +15,7 @@ def measure_automata_performance_in_functions(pr=0.75, le=10, run_n=1000, entrop
 
     automatas, train_errors, test_errors, times = {}, {}, {}, {}
     for i, p in enumerate(problems):
-        learner = AutomataLearner(p.max_states, p.alphabet, entropy_weight=entropy_weight, lazy_bias=lazy_bias, train_step_n=train_step_n, learning_rate=learning_rate, b1=b1, b2=b2)
+        learner = AutomataLearner(p.max_states, p.alphabet, entropy_weight=entropy_weight, lazy_bias=lazy_bias, train_step_n=train_step_n, run_n=run_n, learning_rate=learning_rate, b1=b1, b2=b2)
         xs, ys = sample_dataset(p.f, p.alphabet, pr, le)
         test_xs, test_ys = sample_dataset(p.f, p.alphabet, pr, le)
         xs = xs + p.xs
@@ -26,7 +26,7 @@ def measure_automata_performance_in_functions(pr=0.75, le=10, run_n=1000, entrop
 
 
         start_time = time.time() # Time start
-        automata = learner.learn_from_dataset(xs, ys, run_n)
+        automata = learner.learn_from_dataset(xs, ys)
         end_time = time.time() # Time end
 
         times[p.num] = end_time - start_time
@@ -56,7 +56,7 @@ def measure_alphabet_impact(pr=0.75, le=10, run_n=1000, entropy_weight=0, lazy_b
         for _ in range(max_alphabet_extend):
             alphabet += [get_separate_char(alphabet)]
             learner = AutomataLearner(p.max_states, alphabet, entropy_weight=entropy_weight, lazy_bias=lazy_bias,
-                                      train_step_n=train_step_n, learning_rate=learning_rate, b1=b1, b2=b2)
+                                      train_step_n=train_step_n, run_n=run_n, learning_rate=learning_rate, b1=b1, b2=b2)
             xs, ys = sample_dataset(p.f, p.alphabet, pr, le)
             test_xs, test_ys = sample_dataset(p.f, p.alphabet, pr, le)
             xs = xs + p.xs
@@ -67,7 +67,7 @@ def measure_alphabet_impact(pr=0.75, le=10, run_n=1000, entropy_weight=0, lazy_b
             print(f"    ys: {ys}")
 
             start_time = time.time()  # Time start
-            automata = learner.learn_from_dataset(xs, ys, run_n)
+            automata = learner.learn_from_dataset(xs, ys)
             end_time = time.time()  # Time end
 
             times[p.num].append(end_time - start_time)
@@ -93,7 +93,7 @@ def measure_max_states_impact(pr=0.75, le=10, run_n=1000, entropy_weight=0, lazy
         print(f"Problem{p.description}")
         for j in range(1, max_states_extend):
             learner = AutomataLearner(j, p.alphabet, entropy_weight=entropy_weight, lazy_bias=lazy_bias,
-                                      train_step_n=train_step_n, learning_rate=learning_rate, b1=b1, b2=b2)
+                                      train_step_n=train_step_n, run_n=run_n, learning_rate=learning_rate, b1=b1, b2=b2)
             xs, ys = sample_dataset(p.f, p.alphabet, pr, le)
             test_xs, test_ys = sample_dataset(p.f, p.alphabet, pr, le)
             xs = xs + p.xs
@@ -104,7 +104,7 @@ def measure_max_states_impact(pr=0.75, le=10, run_n=1000, entropy_weight=0, lazy
             print(f"    ys: {ys}")
 
             start_time = time.time()  # Time start
-            automata = learner.learn_from_dataset(xs, ys, run_n)
+            automata = learner.learn_from_dataset(xs, ys)
             end_time = time.time()  # Time end
 
             times[p.num].append(end_time - start_time)
