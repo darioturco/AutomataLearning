@@ -208,6 +208,10 @@ class StateAutomata(Automata):
 		self.accepting_states = accepting_states
 		self.initial_state = initial_state
 
+	#def add_state(self, new_state):
+	#	self.states.add(new_state)
+
+
 	# Return the new state before consume 'input_' in the state 'state'
 	def get_edge(self, state, input_):
 		for (i, s) in self.edges[state]:

@@ -4,6 +4,11 @@ from src.utils import sample_dataset, get_separate_char
 import time
 import numpy as np
 
+def measure_k_tails():
+    all_problems = [problem1, problem2, problem3, problem4, problem5, problem6, problem7, problem8, problem9, problem10,
+                    problem11, problem12, problem13, problem14, problem15, problem16]
+
+
 
 def measure_automata_performance_in_functions(pr=0.75, le=10, run_n=1000, entropy_weight=0, lazy_bias=1.0, train_step_n=1000, learning_rate=0.1, b1=0.4, b2=0.4, problem_list=None, save=False):
     all_problems = [problem1, problem2, problem3, problem4, problem5, problem6, problem7, problem8, problem9, problem10, problem11, problem12, problem13, problem14, problem15, problem16]
@@ -26,7 +31,7 @@ def measure_automata_performance_in_functions(pr=0.75, le=10, run_n=1000, entrop
 
 
         start_time = time.time() # Time start
-        automata = learner.learn_from_dataset(xs, ys, run_n)
+        automata = learner.learn_from_dataset(xs, ys, run_n, concatenate=True)
         end_time = time.time() # Time end
 
         times[p.num] = end_time - start_time

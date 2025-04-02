@@ -5,7 +5,7 @@ import jax.numpy as jnp
 import optax
 
 from src.utils import decode_fsm, entropy, prepare_str, get_separate_char, decode_str, probabilistic_sample
-from src.automatas.automatas import TensorAutomata, FunctionAutomata, FSM, Params, Stats, TrainState, TrainResult
+from src.automatas.automatas import TensorAutomata, FunctionAutomata, StateAutomata, FSM, Params, Stats, TrainState, TrainResult
 
 
 def loss_f(params, x, y0, entropy_weight, hard=False):
@@ -55,7 +55,6 @@ class Learner:
 		train_state = TrainState(params0, opt_state)
 
 		for i in range(self.train_step_n):
-			#print(i)
 			train_state, stats = self.train_step(train_state)
 			logs.append(stats)
 
@@ -146,6 +145,66 @@ class Learner:
 		T, A, s0 = self.train_fsm(keys, xs, ys, concatenate)
 
 		return TensorAutomata(T, A, s0, self.alphabet, self.max_states)
+
+	def build_pta(self, xs):
+		states = set()
+		accepting_states = set()
+		edges = []
+
+		for x in xs:
+			current_state = ""
+			next_state = ""
+			for symbol in x:
+				next_state = current_state + symbol
+				states.add(current_state)
+				states.add(next_state)
+				edges[current_state] = [(current_state, symbol, next_state)]
+				current_state = next_state
+
+			accepting_states.add(next_state)
+
+		return StateAutomata(states, edges, accepting_states, "", self.alphabet)
+
+	def merge_states(self, automata, k):
+		state_list = list(automata.states)
+		i = 0
+		while i < len(state_list):
+			state1 = state_list[i]
+			j = i + 1
+			while j < len(state_list):
+				state2 = state_list[j]
+				if self.get_k_tails(state1, k) == self.get_k_tails(state2, k):
+					# Merge state2 into state1
+					for symbol, targets in state2.transitions.items():
+						for target in targets:
+							state1.add_transition(symbol, target)
+					# Remove state2 and continue
+					automata.states.pop(state2.name)
+					state_list.remove(state2)
+				else:
+					j += 1
+			i += 1
+
+	def get_k_tails(self, state, k):
+		"""Helper function to get all tails of length k starting from a given state."""
+		tails = set()
+
+		def dfs(current_state, path):
+			if len(path) == k:
+				tails.add(tuple(path))
+				return
+			if current_state in state.transitions:
+				for symbol, next_states in state.transitions[current_state].items():
+					for next_state in next_states:
+						dfs(next_state.name, path + [symbol])
+
+		dfs(state.name, [])
+		return tails
+
+	def k_tails(self, xs, k=2, verbose=0):
+		automata = self.build_pta(xs)
+		return self.merge_states(automata, k)
+
 
 
 
