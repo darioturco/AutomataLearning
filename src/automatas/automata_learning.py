@@ -12,6 +12,7 @@ def loss_f(params, x, y0, entropy_weight, hard=False):
 	T, A, s0 = decode_fsm(params, hard=hard)
 	fsm = FSM(T, A, s0)
 	y, s = TensorAutomata.run_fsm_with_values(x, fsm.A, fsm.T, fsm.s0)
+	y = y.transpose(1,0,2)
 	error = jnp.square(y - y0).sum()
 	entropy_loss = entropy(s.mean(0)) * entropy_weight
 	total = error + entropy_loss
@@ -44,6 +45,7 @@ class Learner:
 		params, opt_state = train_state
 		grad_f = jax.grad(self.loss_f, has_aux=True)
 		grads, stats = grad_f(params)
+
 		updates, opt_state = self.optimizer.update(grads, opt_state)
 		params = optax.apply_updates(params, updates)
 		return TrainState(params, opt_state), stats
@@ -87,11 +89,21 @@ class Learner:
 		key = jax.random.PRNGKey(1)
 		return jax.random.split(key, run_n)
 
-	def train_fsm(self, keys, x, y, concatenate=True):
-		alphabet_in = self.alphabet_ext if concatenate else self.alphabet
-		alphabet_out = ['0', '1'] + ([self.separate_char] if concatenate else [])
-		xs = jnp.array([prepare_str(x_, alphabet_in) for x_ in x])	### Va a explotar cuando concatenate no sea True
-		ys = jnp.array([prepare_str(y_, alphabet_out) for y_ in y])
+
+
+	def train_fsm(self, keys, x, y, concatenate=False):
+		#alphabet_in = self.alphabet_ext if concatenate else self.alphabet
+		#alphabet_out = ['0', '1'] + ([self.separate_char] if concatenate else [])
+		alphabet_in = self.alphabet_ext
+		alphabet_out = ['0', '1'] + [self.separate_char]
+		if concatenate:
+			xs = jnp.array([prepare_str(x_, alphabet_in) for x_ in x])	### Va a explotar cuando concatenate no sea True
+			ys = jnp.array([prepare_str(y_, alphabet_out) for y_ in y])
+		else:
+			max_len = max([len(x_) for x_ in x])
+			xs = jnp.array([prepare_str(x_, alphabet_in, padding=max_len-len(x_)) for x_ in x])
+			ys = jnp.array([prepare_str(y_, alphabet_out, padding=max_len-len(y_)) for y_ in y])
+
 		#xs, ys = , prepare_str(y, alphabet_out)
 		self.loss_f = partial(loss_f, x=xs, y0=ys, entropy_weight=self.entropy_weight)
 		self.r = jax.vmap(self.run)(keys)
@@ -134,7 +146,7 @@ class Learner:
 
 		return automata
 
-	def learn_from_dataset(self, xs, ys, run_n=1000, concatenate=True, verbose=0):
+	def learn_from_dataset(self, xs, ys, run_n=1000, concatenate=False, verbose=0):
 		assert len(xs) == len(ys), "Error"
 
 		keys = self.generate_keys(run_n)
