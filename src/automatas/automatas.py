@@ -173,18 +173,20 @@ class FunctionAutomata(Automata):
 class StateAutomata(Automata):
 	def __init__(self, states, edges, accepting_states, initial_state, alphabet):
 		super().__init__(alphabet, len(states))
-		self.states = states
+		self.states = list(set(states))
 		self.edges = edges					# {s1: [(i, s_i), ...], s2:...}
 		self.accepting_states = accepting_states
 		self.initial_state = initial_state
 
 	# Return the new state before consume 'input_' in the state 'state'
 	def get_edge(self, state, input_):
+		if state not in self.edges:
+			return None
 		for (i, s) in self.edges[state]:
 			if input_ == i:
 				return s
 			
-		return None, None
+		return None
 
 
 	def __call__(self, inputs):
@@ -243,6 +245,42 @@ class StateAutomata(Automata):
 
 	def to_state_automata(self):
 		return self
+
+	def add_state(self, state):
+		self.states = list(set(self.states + [state]))
+		self.edges[state] = []
+
+	def add_transition(self, s1, c, s2):
+		### Check if the states are in self.satte and if the character is valid by the alphabet
+		if s1 not in self.edges:
+			self.edges[s1] = []
+
+		### Check that the edges is not present yet
+		self.edges[s1].append((c, s2))
+
+	def add_accepting_state(self, state):
+		self.accepting_states = list(set(self.accepting_states + [state]))
+
+	def set_accepting_states(self, accepting_states):
+		self.accepting_states = accepting_states
+
+	def is_accepting_state(self, state):
+		return state in self.accepting_states
+
+
+	def remove_state(self, state):
+		self.states.remove(state)
+		self.edges.pop(state)
+
+		for k in self.edges.keys():
+			self.edges[k] = [(c, node) for c, node in self.edges[k] if node != state]
+
+		if state in self.accepting_states:
+			self.accepting_states.remove(state)
+
+
+
+
 
 
 

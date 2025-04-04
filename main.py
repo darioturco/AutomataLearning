@@ -23,23 +23,25 @@ if __name__ == "__main__":
 	#automata_s.show()
 
 	##### Performance experiment #####
-	res = measure_automata_performance_in_functions(pr=0.75, le=10, run_n=2500, train_step_n=3000, save=False)
-	automatas, train_errors, test_errors, times = res
-	automatas[0].show()
+	#res = measure_automata_performance_in_functions(pr=0.75, le=10, run_n=2500, train_step_n=3000, save=False)
+	#automatas, train_errors, test_errors, times = res
+	#automatas[0].show()
 
 
 
 
-	##### L Start #####
+	##### K Tails #####
+
+	learner = AutomataLearner(2, ['a', 'b', 'c', 'f'])
+	#xs = ['1000', '100', '111', '101', '1', '1010', '11', '10']
+	#xs = ['abaa', 'a', 'aaa', 'babaa', 'bbbabbb', 'babbabbba', 'aaaaa', 'bbbabaa']
+	xs = ['abcf', 'abcbcf']
+
+	automata = learner.learn_from_k_tail(xs, k=2, verbose=0)
 
 
-	#learner = LStartLearner(problem1.alphabet)
-	#automata = learner.learn(problem1.target_automata)
-	#automata.show()
+	automata.show(verbose=1)
 
-	# print(f"    Square Error Sum: {automata.error_square(xs, ys)}\n")
-	# automata_s = automata.to_state_automata()
-	# automata_s.print()
 
 
 

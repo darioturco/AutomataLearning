@@ -6,7 +6,7 @@ import optax
 
 from src.utils import decode_fsm, entropy, prepare_str, get_separate_char, decode_str, probabilistic_sample
 from src.automatas.automatas import TensorAutomata, FunctionAutomata, FSM, Params, Stats, TrainState, TrainResult
-
+from src.automatas.algorithms.k_tails import KTail
 
 def loss_f(params, x, y0, entropy_weight, hard=False):
 	T, A, s0 = decode_fsm(params, hard=hard)
@@ -39,6 +39,7 @@ class Learner:
 		self.optimizer = optax.adam(learning_rate, b1, b2)
 		self.verbose = verbose
 		self.loss_f = None
+		self.k_tail_learner = KTail(self)
 
 	@partial(jax.jit, static_argnums=(0,))
 	def train_step(self, train_state):
@@ -142,6 +143,9 @@ class Learner:
 		T, A, s0 = self.train_fsm(keys, x, y)
 
 		return TensorAutomata(T, A, s0, self.alphabet, self.max_states)
+
+	def learn_from_k_tail(self, xs, k, verbose=0):
+		return self.k_tail_learner.learn(xs, k, verbose=verbose)
 
 
 
