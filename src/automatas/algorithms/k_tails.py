@@ -7,8 +7,13 @@ class KTail:
 		self.learner = learner
 
 	def k_tail_new(self, pta, xs):
-		max_k = max([len(x) for x in xs])
-		m = [[0 for _ in range(max_k)] for _ in range(max_k)]
+		#max_k = max([len(x) for x in xs])
+		n = len(pta.states)
+		m = [[0 for _ in range(n)] for _ in range(n)]
+		for i in range(n):
+			for j in range(n):
+				if pta.is_accepting_state(i) and pta.is_accepting_state(j):
+					m[i][j] = 1
 
 
 	def learn(self, xs, k=1, verbose=0):

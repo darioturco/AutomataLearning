@@ -32,10 +32,11 @@ if __name__ == "__main__":
 
 	##### K Tails #####
 
-	learner = AutomataLearner(2, ['a', 'b', 'c', 'f'])
+	learner = AutomataLearner(2, ['a', 'b', 'c'])
 	#xs = ['1000', '100', '111', '101', '1', '1010', '11', '10']
 	#xs = ['abaa', 'a', 'aaa', 'babaa', 'bbbabbb', 'babbabbba', 'aaaaa', 'bbbabaa']
-	xs = ['abcf', 'abcbcf']
+	#xs = ['abcf', 'abcbcf']
+	xs = ['bcbca', 'aaabca', 'aabcbca', 'aaa']
 
 	automata = learner.learn_from_k_tail(xs, k=2, verbose=0)
 
