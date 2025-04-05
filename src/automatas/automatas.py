@@ -33,7 +33,7 @@ class Automata:
 		error = 0.0
 		for x, y0 in zip(xs, ys0):
 			y, s = self(x)
-			y0 = prepare_str(y0, ['0', '1', self.separate_char])
+			y0 = jnp.array([prepare_str(y0, ['0', '1', self.separate_char])]).transpose(1,0,2)
 			error += jnp.square(y-y0).sum()
 			error += 0.0 if s is None else entropy(s.mean(0)) * entropy_weight
 		return error
@@ -71,22 +71,23 @@ class TensorAutomata(Automata):
 	@staticmethod
 	def run_fsm_with_values(inputs, A, T, s0):
 		def f(s, x):
-			s1 = jnp.einsum('x,s,xst->t', x, s, T)
-			y  = jnp.einsum('s,sy->y', s1, A)
+			s1 = jnp.einsum('ix,is,xst->it', x, s, T)
+			y  = jnp.einsum('is,sy->iy', s1, A)
 
 			return s1, (y, s1)
 
-		_, (outputs, states) = jax.lax.scan(f, s0, inputs)
-		return outputs, jnp.vstack([s0, states])
+		init_state = jnp.array([s0 for _ in range(inputs.shape[0])])
+		_, (outputs, states) = jax.lax.scan(f, init_state, inputs.transpose((1, 0, 2)))
+		return outputs, jnp.vstack([[init_state], states]).transpose((1,0,2))
 
 	def __call__(self, inputs):
-		inputs = prepare_str(inputs, self.alphabet_ext)
+		inputs = jnp.array([prepare_str(inputs, self.alphabet_ext)])
 		return TensorAutomata.run_fsm_with_values(inputs, self.fsm.A, self.fsm.T, self.fsm.s0)
 
 	def run_fsm(self, x):
 		y, _ = self(x)
-
 		return decode_str(y, ['0', '1', self.separate_char]) ### Tiene que devolver un booleano
+
 
 	def print(self):
 		print(f"T = {self.fsm.T.shape}")
@@ -95,7 +96,8 @@ class TensorAutomata(Automata):
 
 	def show(self, path=None, title="", node_size=500, verbose=0):
 		state_automata = self.to_state_automata()
-		state_automata.show(path=None, title="", node_size=500, verbose=0)
+		state_automata.show(path=path, title=title, node_size=node_size, verbose=verbose)
+
 
 
 
@@ -177,6 +179,10 @@ class StateAutomata(Automata):
 		self.edges = edges					# {s1: [(i, s_i), ...], s2:...}
 		self.accepting_states = accepting_states
 		self.initial_state = initial_state
+
+	#def add_state(self, new_state):
+	#	self.states.add(new_state)
+
 
 	# Return the new state before consume 'input_' in the state 'state'
 	def get_edge(self, state, input_):

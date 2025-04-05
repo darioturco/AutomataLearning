@@ -13,12 +13,12 @@ def hardmax(x):
   return nn.one_hot(x.argmax(-1), x.shape[-1])
 
 def decode_fsm(params, hard=False):
-  T, R, s0 = params
+  T, A, s0 = params
   f = hardmax if hard else nn.softmax
-  return f(T), f(R), f(s0)
+  return f(T), f(A), f(s0)
 
-def prepare_str(s, alphabet):
-  return nn.one_hot(list(map(f_char2int(alphabet), s)), len(alphabet))
+def prepare_str(s, alphabet, padding=0):
+  return nn.one_hot(list(map(f_char2int(alphabet), s + (alphabet[-1]*padding))), len(alphabet))
 
 def decode_str(x, alphabet):
   return "".join([alphabet[i] for i in x.argmax(axis=1).tolist()])
