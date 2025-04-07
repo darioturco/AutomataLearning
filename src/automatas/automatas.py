@@ -185,6 +185,7 @@ class StateAutomata(Automata):
 
 
 	# Return the new state before consume 'input_' in the state 'state'
+	### Cambiarle el nombre
 	def get_edge(self, state, input_):
 		if state not in self.edges:
 			return None

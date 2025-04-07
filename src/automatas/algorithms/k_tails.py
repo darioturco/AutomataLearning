@@ -1,63 +1,76 @@
-from collections import defaultdict
 from src.automatas.automatas import StateAutomata
-
 
 class KTail:
 	def __init__(self, learner):
 		self.learner = learner
+		self.alphabet = self.learner.alphabet
 
-	def k_tail_new(self, pta, xs):
-		#max_k = max([len(x) for x in xs])
-		n = len(pta.states)
-		m = [[0 for _ in range(n)] for _ in range(n)]
-		for i in range(n):
-			for j in range(n):
-				if pta.is_accepting_state(i) and pta.is_accepting_state(j):
-					m[i][j] = 1
+	def add_single_state(self, q, equivalence):
+		for eq in equivalence:
+			if q in eq:
+				return
+
+		equivalence.append({q})
+
+	def equivalent_next(self, q1, q2, automata, equivalences):
+		for a in self.alphabet:
+			new_q1 = automata.get_edge(q1, a)
+			new_q2 = automata.get_edge(q2, a)
+			if not self.equivalent(new_q1, new_q2, equivalences):
+				return False
+
+		return True
+
+	def equivalent(self, q1, q2, equivalences):
+		if q1 is None and q2 is None:
+			return True
+
+		for eq in equivalences:
+			if (q1 in eq) and (q2 in eq):
+				return True
+
+		return False
 
 
-	def learn(self, xs, k=1, verbose=0):
+	def learn(self, xs, k=None, verbose=0):
 		# Step 1: Create prefix tree acceptor (PTA)
 		pta = self.create_prefix_tree_acceptor(xs)
+		#pta.show()	### Borrar
 
-		#self.k_tail_new(pta, xs)
+		if k is None:
+			k = len(pta.states)
 
-		# Step 2: Initialize state equivalence classes based on k-tails
-		state_classes = {}
-		for state in pta.states:
-			k_tails = self.compute_k_tails(pta, state, k)
-			state_classes[state] = frozenset(k_tails)
+		# Step 2: Compute the equivalences classes
+		equivalences = [set(pta.accepting_states.copy()), {s for s in pta.states if s not in pta.accepting_states}]
+		for i in range(k-1):
+			new_equivalences = []
+			for eq in equivalences:
+				new_equivalences += self.open_equivalences(eq, equivalences, pta)
+			equivalences = new_equivalences
 
-		# Step 3: Merge states with equivalent k-tails
-		merged = True
-		while merged:
-			merged = False
-
-			# Create mapping from k-tails to states
-			tails_to_states = defaultdict(list)
-			for state, tails in state_classes.items():
-				tails_to_states[tails].append(state)
-
-			print(tails_to_states)
-
-			# Try to merge states with same k-tails
-			for tails, states in tails_to_states.items():
-				if len(states) > 1:
-					# Merge all states in this group into the first one
-					representative = states[0]
-					for state in states[1:]:
-						if self.merge_states(pta, representative, state):
-							merged = True
-							# Update state_classes for the merged state
-							for s in states:
-								if s in state_classes:
-									del state_classes[s]
-							state_classes[representative] = tails
-							break
-					if merged:
-						break
+		# Step 3: Merge all the states with the same equivalence class
+		for eq in equivalences:
+			q1 = eq.pop()
+			for q2 in eq:
+				self.merge_states(pta, q1, q2)
 
 		return pta
+
+	def open_equivalences(self, equivalence, all_equivalences, automaton):
+		new_classes = []
+		seen = []
+		for q1 in equivalence:
+			added = False
+			for eq in new_classes:
+				if q1 not in eq and self.equivalent_next(q1, next(iter(eq)), automaton, all_equivalences):
+					eq.add(q1)
+					added = True
+
+			if not added:
+				new_classes.append({q1})
+
+		return new_classes
+
 
 	def merge_states(self, automaton, state1, state2):
 		### Check if the new states are well merged (if the transition are deleted or overwhiten)
@@ -83,24 +96,6 @@ class KTail:
 			automaton.add_accepting_state(state1)
 
 		automaton.remove_state(state2)
-
-
-	def compute_k_tails(self, pta, state, k):
-		tails = set()
-
-		def dfs(s, path):
-			if len(path) == k:
-				tails.add(tuple(path))
-				return
-			if pta.is_accepting_state(s) and len(path) > 0:
-				tails.add(tuple(path))
-				return
-
-			for symbol, target in pta.edges[s]:
-				dfs(target, path + [symbol])
-
-		dfs(state, [])
-		return tails
 
 
 	def create_prefix_tree_acceptor(self, xs):
