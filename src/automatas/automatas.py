@@ -88,19 +88,19 @@ class TensorAutomata(Automata):
 		y, _ = self(x)
 		return decode_str(y, ['0', '1', self.separate_char]) ### Tiene que devolver un booleano
 
+	def __repr__(self):
+		return f"""
+T = {self.fsm.T.shape}
+R = {self.fsm.A.shape}
+Initial State = {self.fsm.s0.shape}
+		"""
 
 	def print(self):
-		print(f"T = {self.fsm.T.shape}")
-		print(f"R = {self.fsm.A.shape}")
-		print(f"Initial State = {self.fsm.s0.shape}")
+		print(self.__repr__())
 
 	def show(self, path=None, title="", node_size=500, verbose=0):
 		state_automata = self.to_state_automata()
 		state_automata.show(path=path, title=title, node_size=node_size, verbose=verbose)
-
-
-
-
 
 	def to_nx_digraph(self):
 		edges_dict = {}
@@ -159,6 +159,9 @@ class FunctionAutomata(Automata):
 
 	def __call__(self, inputs):
 		return self.f(inputs), None
+
+	def __repr__(self):
+		return self.__repr__()
 
 	def run_fsm(self, x):
 		return self(x)[0]
@@ -227,11 +230,16 @@ class StateAutomata(Automata):
 
 		return G, G.nodes, edges_dict
 
+	def __repr__(self):
+		return f"""
+States: {self.states}
+Edges: {self.edges}
+Accepting Sates: {self.accepting_states}
+Initial State: {self.initial_state}
+		"""
+
 	def print(self):
-		print(f"States: {self.states}")
-		print(f"Edges: {self.edges}")
-		print(f"Accepting Sates: {self.accepting_states}")
-		print(f"Initial State: {self.initial_state}")
+		print(self)
 
 	def show(self, path=None, title="", node_size=500, verbose=0):
 		if verbose:
@@ -273,7 +281,6 @@ class StateAutomata(Automata):
 
 	def is_accepting_state(self, state):
 		return state in self.accepting_states
-
 
 	def remove_state(self, state):
 		self.states.remove(state)
