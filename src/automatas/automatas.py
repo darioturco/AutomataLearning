@@ -47,8 +47,6 @@ class Automata:
 	def to_state_automata(self):
 		raise NotImplementedError
 
-
-
 	# Transducer Operations
 	def union(self, transducer):
 		raise NotImplementedError
@@ -100,7 +98,7 @@ Initial State = {self.fsm.s0.shape}
 
 	def show(self, path=None, title="", node_size=500, verbose=0):
 		state_automata = self.to_state_automata()
-		state_automata.show(path=path, title=title, node_size=node_size, verbose=verbose)
+		return state_automata.show(path=path, title=title, node_size=node_size, verbose=verbose)
 
 	def to_nx_digraph(self):
 		edges_dict = {}
@@ -176,16 +174,20 @@ class FunctionAutomata(Automata):
 		raise NotImplementedError
 
 class StateAutomata(Automata):
+	@staticmethod
+	def all_negative_automata(alphabet):
+		return StateAutomata([0], {0: [(a, 0) for a in alphabet]}, [], 0, alphabet)
+
+	@staticmethod
+	def all_positive_automata(alphabet):
+		return StateAutomata([0], {0: [(a, 0) for a in alphabet]}, [0], 0, alphabet)
+
 	def __init__(self, states, edges, accepting_states, initial_state, alphabet):
 		super().__init__(alphabet, len(states))
 		self.states = list(set(states))
 		self.edges = edges					# {s1: [(i, s_i), ...], s2:...}
 		self.accepting_states = accepting_states
 		self.initial_state = initial_state
-
-	#def add_state(self, new_state):
-	#	self.states.add(new_state)
-
 
 	# Return the new state before consume 'input_' in the state 'state'
 	### Cambiarle el nombre
@@ -207,7 +209,7 @@ class StateAutomata(Automata):
 			### Falta chequear if it None
 			states.append(state)
 			
-		return states[-1] in self.accepting_states
+		return states[-1] in self.accepting_states, None
 
 	def run_fsm(self, x):
 		return self(x)
@@ -241,12 +243,11 @@ Initial State: {self.initial_state}
 	def print(self):
 		print(self)
 
-	def show(self, path=None, title="", node_size=500, verbose=0):
+	def show(self, view=True, verbose=0):
 		if verbose:
 			self.print()
 
 		graph = graphviz.Digraph('Automata')
-
 		for i, s in enumerate(self.states):
 			shape = 'doublecircle' if s == self.initial_state else 'circle'
 			color = 'green' if s in self.accepting_states else 'white'
@@ -256,7 +257,9 @@ Initial State: {self.initial_state}
 			for c, s2 in xs:
 				graph.edge(str(s1), str(s2), label=str(c))
 
-		graph.render(directory='graphs', view=True)
+		if view:
+			graph.render(directory='graphs', view=True)
+		return graph
 
 	def to_state_automata(self):
 		return self
@@ -266,7 +269,8 @@ Initial State: {self.initial_state}
 		self.edges[state] = []
 
 	def add_transition(self, s1, c, s2):
-		### Check if the states are in self.satte and if the character is valid by the alphabet
+		# assert s1 in self.states and s2 in self.states and c in self.alphabet ### Revisar
+
 		if s1 not in self.edges:
 			self.edges[s1] = []
 
@@ -282,6 +286,16 @@ Initial State: {self.initial_state}
 	def is_accepting_state(self, state):
 		return state in self.accepting_states
 
+	def reset_states(self):
+		states_map = {s:i for i, s in enumerate(self.states)}
+		self.states = [s for s in range(len(self.states))]
+		self.accepting_states = [states_map[a] for a in self.accepting_states]
+		new_edges = {}
+		for k, v in self.edges.items():
+			new_edges[states_map[k]] = [(a, states_map[s]) for a, s in v]
+		self.edges = new_edges
+		self.initial_state = states_map[self.initial_state]
+
 	def remove_state(self, state):
 		self.states.remove(state)
 		self.edges.pop(state)
@@ -291,12 +305,3 @@ Initial State: {self.initial_state}
 
 		if state in self.accepting_states:
 			self.accepting_states.remove(state)
-
-
-
-
-
-
-
-
-

@@ -1,0 +1,1 @@
+{'pr': 0.75, 'le': 10, 'run_n': 1000, 'concatenate': False, 'entropy_weight': 0, 'lazy_bias': 1.0, 'train_step_n': 1000, 'learning_rate': 0.1, 'b1': 0.4, 'b2': 0.4}

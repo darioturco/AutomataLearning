@@ -24,23 +24,23 @@ if __name__ == "__main__":
 	#automata_s.print()
 	#automata_s.show()
 
-	#res = measure_automata_performance_in_functions(pr=0.75, le=10, run_n=500, train_step_n=1000, save=False)
-	#automatas, train_errors, test_errors, times = res
-	#automatas[1].show()
+	#res = measure_automata_performance_in_functions(save=True)
+
 
 
 
 	##### K Tails #####
 
 	learner = AutomataLearner(['a', 'b'], False)
-	#xs = ['abaa', 'a', 'aaa', 'babaa', 'bbbabbb', 'babbabbba', 'aaaaa', 'bbbabaa']
-	xs = ['abcf', 'abcbcf']
-	#xs = ['bcbca', 'aabca', 'aabcbca', 'aaa']
-	#xs = ['aba', 'aa', 'ba']
+	#xs = ['abaa', 'a', 'aaa', 'babaa', 'bbbabbb', 'babbabbba', 'aaaaa', 'bbbabaa']; ns = ['ba', 'bbbb']
+	#xs = ['abcf', 'abcbcf']; ns = ['aa', 'abc', 'fbba']
+	#xs = ['bcbca', 'aaabca', 'aabcbca', 'aaa']
+	xs = ['aba', 'aa', 'ba']; ns = ['bb']
 
-
-	automata = learner.learn_from_k_tail(xs, k=None, verbose=0)
+	#automata = learner.learn_from_k_tail(xs, k=None, verbose=0)
+	automata = learner.learn_from_rpni(xs, ns, verbose=0)
 	automata.show(verbose=1)
+
 
 
 

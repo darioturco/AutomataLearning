@@ -32,30 +32,6 @@ class KTail:
 		return False
 
 
-	def learn(self, xs, k=None, verbose=0):
-		# Step 1: Create prefix tree acceptor (PTA)
-		pta = self.create_prefix_tree_acceptor(xs)
-		#pta.show()	### Borrar
-
-		if k is None:
-			k = len(pta.states)
-
-		# Step 2: Compute the equivalences classes
-		equivalences = [set(pta.accepting_states.copy()), {s for s in pta.states if s not in pta.accepting_states}]
-		for i in range(k-1):
-			new_equivalences = []
-			for eq in equivalences:
-				new_equivalences += self.open_equivalences(eq, equivalences, pta)
-			equivalences = new_equivalences
-
-		# Step 3: Merge all the states with the same equivalence class
-		for eq in equivalences:
-			q1 = eq.pop()
-			for q2 in eq:
-				self.merge_states(pta, q1, q2)
-
-		return pta
-
 	def open_equivalences(self, equivalence, all_equivalences, automaton):
 		new_classes = []
 		seen = []
@@ -98,12 +74,12 @@ class KTail:
 		automaton.remove_state(state2)
 
 
-	def create_prefix_tree_acceptor(self, xs):
+	def create_prefix_tree_acceptor(self, positives, negatives):
 		automaton = StateAutomata([0], {0: []}, [], 0, self.learner.alphabet)
 		state_counter = 1
 		final_states = []
 
-		for seq in xs:
+		for seq in positives + negatives:
 			current_state = automaton.initial_state
 			for c in seq:
 				s = automaton.get_edge(current_state, c)
@@ -115,8 +91,124 @@ class KTail:
 					current_state = new_state
 				else:
 					current_state = s
-
-			final_states.append(current_state)
+			if seq in positives:
+				final_states.append(current_state)
 
 		automaton.set_accepting_states(final_states)
 		return automaton
+
+
+	def learn(self, xs, k=None, verbose=0):
+		if len(xs) == 0:
+			return StateAutomata.all_negative_automata(self.alphabet)
+
+		# Step 1: Create prefix tree acceptor (PTA)
+		pta = self.create_prefix_tree_acceptor(xs, [])
+
+		if k is None:
+			k = len(pta.states)
+
+		# Step 2: Compute the equivalences classes
+		equivalences = [set(pta.accepting_states.copy()), {s for s in pta.states if s not in pta.accepting_states}]
+		for i in range(k-1):
+			new_equivalences = []
+			for eq in equivalences:
+				new_equivalences += self.open_equivalences(eq, equivalences, pta)
+			equivalences = new_equivalences
+
+		# Step 3: Merge all the states with the same equivalence class
+		for eq in equivalences:
+			q1 = eq.pop()
+			for q2 in eq:
+				self.merge_states(pta, q1, q2)
+
+		pta.reset_states()
+		return pta
+
+	######### -------------------- #########
+	def learn_rpni(self, positives, negatives, verbose=0):
+		if len(positives) == 0:
+			return StateAutomata.all_negative_automata(self.alphabet)
+
+		if len(negatives) == 0:
+			return StateAutomata.all_positive_automata(self.alphabet)
+
+		pta = self.create_prefix_tree_acceptor(positives, negatives)
+
+		### Completar RPNI y pasar a otro archivo separado
+
+		red_states = {pta.initial_state}
+		blue_states = {new_state for (a, new_state) in pta.edges[pta.initial_state]}
+
+		while len(blue_states) > 0:
+			mergible_states = not_eq_states = [], []
+			for blue_state in blue_states:
+				merged = False
+				for red_state in red_states:
+					if self.are_mergable(blue_state, red_state, pta):
+						mergible_states.append((blue_state, red_state))
+						merged = True
+
+				if not merged:
+					not_eq_states.append(blue_state)
+
+			# Promote
+			red_states.add(not_eq_states[-1])
+
+			blue_states = {pta.get_edge(red_state, a) for red_state in red_states for a in self.alphabet} - red_states - {None}
+
+
+
+
+
+
+
+		"""
+
+		while len(blue_states) > 0:
+			blue_state = blue_states.pop()
+			merged = False
+
+				# Try merging blue_state with each red_state
+			for red_state in sorted(red_states):
+				# Check if merging is consistent
+				consistent = True
+
+				# Check if merging causes any conflicts in acceptance
+				if (blue_state in pta.accepting_states and red_state not in pta.accepting_states) or \
+						(blue_state not in pta.accepting_states and red_state in pta.accepting_states):
+					consistent = False
+
+				if consistent:
+					# Perform merge: replace all occurrences of blue_state with red_state
+					for state in pta.states:
+						pta.edges[state] = [(c, red_state) if next_state == blue_state else (c, next_state) for c, next_state in pta.edges[state]]
+
+
+					# Update states and transitions
+					if blue_state in pta.states:
+						pta.states.remove(blue_state)
+					if blue_state in pta.accepting_states:
+						pta.accepting_states.remove(blue_state)
+
+					merged = True
+					break
+
+			if not merged:
+				red_states.add(blue_state)
+				# Update Blue: Add children of the newly added Red state
+				for symbol in pta.edges[blue_state]:
+					child = pta.get_edge(blue_state, symbol)
+					if child not in red_states:
+						blue_states.add(child)
+
+
+		"""
+
+
+		return pta
+
+	def are_mergable(self, q1, q2, automaton):
+		pass
+
+
