@@ -93,19 +93,16 @@ class DerivativeLearner:
 
 
 	def train_fsm(self, keys, x, y, concatenate=False):
-		#alphabet_in = self.alphabet_ext if concatenate else self.alphabet
-		#alphabet_out = ['0', '1'] + ([self.separate_char] if concatenate else [])
 		alphabet_in = self.alphabet_ext
 		alphabet_out = ['0', '1'] + [self.separate_char]
 		if concatenate:
-			xs = jnp.array([prepare_str(x_, alphabet_in) for x_ in x])	### Va a explotar cuando concatenate no sea True
+			xs = jnp.array([prepare_str(x_, alphabet_in) for x_ in x])
 			ys = jnp.array([prepare_str(y_, alphabet_out) for y_ in y])
 		else:
 			max_len = max([len(x_) for x_ in x])
 			xs = jnp.array([prepare_str(x_, alphabet_in, padding=max_len-len(x_)) for x_ in x])
 			ys = jnp.array([prepare_str(y_, alphabet_out, padding=max_len-len(y_)) for y_ in y])
 
-		#xs, ys = , prepare_str(y, alphabet_out)
 		self.loss_f = partial(loss_f, x=xs, y0=ys, entropy_weight=self.entropy_weight)
 		self.r = jax.vmap(self.run)(keys)
 		best_i = (self.r.eval.states_used + self.r.eval.error * 10000).argmin()
