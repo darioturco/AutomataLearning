@@ -32,10 +32,10 @@ if __name__ == "__main__":
 	##### K Tails #####
 
 	learner = AutomataLearner(['a', 'b'], False)
-	#xs = ['abaa', 'a', 'aaa', 'babaa', 'bbbabbb', 'babbabbba', 'aaaaa', 'bbbabaa']; ns = ['ba', 'bbbb']
+	xs = ['abaa', 'a', 'aaa', 'babaa', 'bbbabbb', 'babbabbba', 'aaaaa', 'bbbabaa']; ns = ['ba', 'bbbb']
 	#xs = ['abcf', 'abcbcf']; ns = ['aa', 'abc', 'fbba']
 	#xs = ['bcbca', 'aaabca', 'aabcbca', 'aaa']
-	xs = ['aba', 'aa', 'ba']; ns = ['bb']
+	#xs = ['aba', 'aa', 'ba']; ns = ['bb']
 
 	#automata = learner.learn_from_k_tail(xs, k=None, verbose=0)
 	automata = learner.learn_from_rpni(xs, ns, verbose=0)

@@ -9,8 +9,6 @@ from src.automatas.automatas import TensorAutomata, FunctionAutomata, StateAutom
 from src.automatas.algorithms.k_tails import KTail
 from src.automatas.algorithms.derivative_learner import DerivativeLearner
 
-
-
 class Learner:
 	def __init__(self, alphabet, verbose=0):
 		self.alphabet = alphabet
