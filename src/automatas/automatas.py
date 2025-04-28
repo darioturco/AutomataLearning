@@ -2,6 +2,7 @@ from collections import namedtuple
 import graphviz
 import networkx as nx
 import matplotlib.pyplot as plt
+import random
 import jax
 import jax.numpy as jnp
 from graphviz import Source
@@ -68,6 +69,9 @@ class TensorAutomata(Automata):
 
 	@staticmethod
 	def run_fsm_with_values(inputs, A, T, s0):
+		# x.shape = [len(xs), len(alphabet)]
+		# T.shape = [len(alphabet), len(states), len(states)]
+		# A.shape = [len(alphabet), len(states)]
 		def f(s, x):
 			s1 = jnp.einsum('ix,is,xst->it', x, s, T)
 			y  = jnp.einsum('is,sy->iy', s1, A)
@@ -82,9 +86,14 @@ class TensorAutomata(Automata):
 		inputs = jnp.array([prepare_str(inputs, self.alphabet_ext)])
 		return TensorAutomata.run_fsm_with_values(inputs, self.fsm.A, self.fsm.T, self.fsm.s0)
 
+	""" Returns the string corresponding to x """
 	def run_fsm(self, x):
 		y, _ = self(x)
-		return decode_str(y, ['0', '1', self.separate_char]) ### Tiene que devolver un booleano
+		return decode_str(y, ['0', '1', self.separate_char])
+
+	""" Return True if acept the string False if it doesn't """
+	def accept(self, x):
+		return self.run_fsm(x)[-1] == '1'
 
 	def __repr__(self):
 		return f"""
@@ -151,9 +160,9 @@ Initial State = {self.fsm.s0.shape}
 
 
 class FunctionAutomata(Automata):
-	def __init__(self, f, alphabet):
+	def __init__(self, f, alphabet, max_states=8):
 		self.f = f
-		super().__init__(alphabet, 8)	### Ver que hacer con ese max_states=8
+		super().__init__(alphabet, max_states)	### Ver que hacer con ese max_states=8
 
 	def __call__(self, inputs):
 		return self.f(inputs), None
@@ -162,7 +171,10 @@ class FunctionAutomata(Automata):
 		return self.__repr__()
 
 	def run_fsm(self, x):
-		return self(x)[0]
+		return "".join(['1' if x[:i] else '0' for i in range(len(x)+1)])
+
+	def accept(self, x):
+		return self.f(x)
 	
 	def print(self):
 		raise NotImplementedError
@@ -181,6 +193,40 @@ class StateAutomata(Automata):
 	@staticmethod
 	def all_positive_automata(alphabet):
 		return StateAutomata([0], {0: [(a, 0) for a in alphabet]}, [0], 0, alphabet)
+
+	""" Genera un NFA con n estados con nt transiciones por cada estado, donde las transiciones
+	   son aleatoreas y hay probabilidad end_p de que un estado sea final """
+
+	@classmethod
+	def dfa_to_automata_state(cls, dfa, alphabet):
+		state_setup = dfa.to_state_setup()
+		"""
+        {
+            "a": (True, {"x": "b1", "y": "a"}),
+            "b1": (False, {"x": "b2", "y": "a"}),
+            "b2": (True, {"x": "b3", "y": "a"}),
+            "b3": (False, {"x": "b4", "y": "a"}),
+            "b4": (False, {"x": "c", "y": "a"}),
+            "c": (True, {"x": "a", "y": "a"}),
+        }
+        """
+		state_dict = {k: i for i, k in enumerate(state_setup.keys())}
+		states = list(state_dict.values())
+		edges_dict = {s: [] for s in states}
+		for k, (_, d) in state_setup.items():
+			for a, s2 in d.items():
+				edges_dict[state_dict[k]].append((a, state_dict[s2]))
+
+		accepting_states = [state_dict[k] for k, v in state_setup.items() if v[0]]
+		return cls(states, edges_dict, accepting_states, state_dict[dfa.initial_state.state_id], alphabet)
+
+	@classmethod
+	def generate_random_nfa(cls, alphabet, n, nt, end_p):
+		states = [i for i in range(n)]
+		accepting_states = [s for s in states if random.random() < end_p]
+		edges_dict = {s1: [(random.choice(alphabet), s2) for s2 in random.sample(states, k=min(nt, len(states)))] for s1
+					  in states}
+		return cls(states, edges_dict, accepting_states, 0, alphabet)
 
 	def __init__(self, states, edges, accepting_states, initial_state, alphabet):
 		super().__init__(alphabet, len(states))
@@ -211,8 +257,12 @@ class StateAutomata(Automata):
 			
 		return states[-1] in self.accepting_states, None
 
+	### FIX
 	def run_fsm(self, x):
-		return self(x)
+		return self(x)[0]
+
+	def accept(self, x):
+		return self(x)[0]
 
 	def to_nx_digraph(self):
 		G = nx.DiGraph()
@@ -305,3 +355,5 @@ Initial State: {self.initial_state}
 
 		if state in self.accepting_states:
 			self.accepting_states.remove(state)
+
+

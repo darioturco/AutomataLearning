@@ -126,17 +126,15 @@ class KTail:
 		return pta
 
 	######### -------------------- #########
-	def learn_rpni(self, positives, negatives, input_completeness='sink_state', verbose=0):
+	def learn_rpni(self, xs, ys, input_completeness='sink_state', verbose=0):
 		data = []
-		for xs in positives:
-			assert set(xs) in self.alphabet
-			data.append((tuple(xs), True))
+		set_alphabet = set(self.alphabet)
+		for x, y in zip(xs, ys):
+			assert set(x).issubset(set_alphabet)
+			data.append((tuple(x), y == '1'))
 
-		for xs in negatives:
-			assert set(xs) in self.alphabet
-			data.append((tuple(xs), False))
-
-		return run_RPNI(data, automaton_type='dfa', input_completeness=input_completeness)
+		dfa = run_RPNI(data, automaton_type='dfa', input_completeness=input_completeness, print_info=verbose)
+		return StateAutomata.dfa_to_automata_state(dfa, self.alphabet)
 
 
 

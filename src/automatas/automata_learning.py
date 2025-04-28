@@ -25,5 +25,6 @@ class Learner:
 	def learn_from_k_tail(self, xs, k, verbose=0):
 		return KTail(self).learn(xs, k, verbose=verbose)
 
-	def learn_from_rpni(self, positives, negatives, verbose=0):
-		return KTail(self).learn_rpni(positives, negatives, verbose=verbose)
+	### Cambiar a la clase RPNI
+	def learn_from_rpni(self, xs, ys, verbose=0):
+		return KTail(self).learn_rpni(xs, ys, verbose=verbose)

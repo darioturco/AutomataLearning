@@ -29,6 +29,10 @@ def entropy(p):
 def get_separate_char(alphabet):
   return [c for c in full_alphabet if c not in alphabet][0]
 
+
+
+
+
 def generate_data_set(f, alphabet_in, records=16, min_length=1, max_length=8, verbose=0):
   res = {}
   while len(res) < records:
