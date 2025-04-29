@@ -1,5 +1,5 @@
 from src.automatas.automatas import StateAutomata
-from aalpy.learning_algs import run_RPNI
+
 class KTail:
 	def __init__(self, learner):
 		self.learner = learner
@@ -124,18 +124,4 @@ class KTail:
 
 		pta.reset_states()
 		return pta
-
-	######### -------------------- #########
-	def learn_rpni(self, xs, ys, input_completeness='sink_state', verbose=0):
-		data = []
-		set_alphabet = set(self.alphabet)
-		for x, y in zip(xs, ys):
-			assert set(x).issubset(set_alphabet)
-			data.append((tuple(x), y == '1'))
-
-		dfa = run_RPNI(data, automaton_type='dfa', input_completeness=input_completeness, print_info=verbose)
-		return StateAutomata.dfa_to_automata_state(dfa, self.alphabet)
-
-
-
 

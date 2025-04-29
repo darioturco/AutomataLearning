@@ -7,6 +7,7 @@ import optax
 from src.utils import decode_fsm, entropy, prepare_str, get_separate_char, decode_str, probabilistic_sample
 from src.automatas.automatas import TensorAutomata, FunctionAutomata, StateAutomata, FSM, Params, Stats, TrainState, TrainResult
 from src.automatas.algorithms.k_tails import KTail
+from src.automatas.algorithms.rpni import RPNI
 from src.automatas.algorithms.derivative_learner import DerivativeLearner
 
 class Learner:
@@ -25,6 +26,5 @@ class Learner:
 	def learn_from_k_tail(self, xs, k, verbose=0):
 		return KTail(self).learn(xs, k, verbose=verbose)
 
-	### Cambiar a la clase RPNI
 	def learn_from_rpni(self, xs, ys, verbose=0):
-		return KTail(self).learn_rpni(xs, ys, verbose=verbose)
+		return RPNI(self).learn_rpni(xs, ys, verbose=verbose)

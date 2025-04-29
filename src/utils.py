@@ -64,7 +64,6 @@ def sample_dataset(f, alphabet, p=0.1, l=8):
 
   return list(xss), yss
 
-### Completar
 def probability_of_word(l, mu, alphabet):
   return mu * ((1 - mu) / len(alphabet)) ** len(l)
 

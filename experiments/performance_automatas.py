@@ -16,13 +16,9 @@ concatenate=False
 entropy_weight=0
 lazy_bias=1.0
 train_step_n=1000
-learning_rate=0.1
+learning_rate=0.05
 b1=0.4
 b2=0.4
-examples = 32
-max_n_states = 16
-end_p = 0.2
-nt = 3
 
 
 def filter_positives(xs, ys):
@@ -30,11 +26,16 @@ def filter_positives(xs, ys):
 def get_problems(problem_list):
     all_problems = [problem1, problem2, problem3, problem4, problem5, problem6, problem7, problem8, problem9, problem10,
                     problem11, problem12, problem13, problem14, problem15, problem16]
-    if type(problem_list) == int:
+    if type(problem_list) == dict:
+        problems_n = problem_list["problems"]
+        dataset_size = problem_list["dataset_size"]
+        max_n_states = problem_list["max_n_states"]
+        end_p = problem_list["end_p"]
+        n_transitions = problem_list["n_transitions"]
         problems = []
-        for i in range(problem_list):
-            nfa = StateAutomata.generate_random_nfa(['a', 'b'], max_n_states, nt, end_p)
-            xs, _ = sample_dataset(nfa.run_fsm, nfa.alphabet, pr, le)
+        for i in range(problems_n):
+            nfa = StateAutomata.generate_random_nfa(['a', 'b'], max_n_states, n_transitions, end_p)
+            xs, _ = sample_dataset(nfa.run_fsm, nfa.alphabet, pr, dataset_size)
             problems.append(Problem(nfa, xs, f"NFA {i}", i))
 
     elif len(problem_list) == 0:
@@ -49,9 +50,21 @@ def get_algorithms():
             'ktails': lambda alp, xs, ys, max_states: AutomataLearner(alp).learn_from_k_tail(filter_positives(xs, ys), k=None),
             'derivative': lambda alp, xs, ys, max_states: AutomataLearner(alp).derivative_passive_learn(xs, ys, max_states=max_states, concatenate=concatenate, run_n=run_n, entropy_weight=entropy_weight, lazy_bias=lazy_bias, train_step_n=train_step_n, learning_rate=learning_rate, b1=b1, b2=b2)}
 
+def run_for_multiple_dfa_types(save=False):
+    for dataset_size in [10, 25, 50, 100, 250]:
+        for max_n_states in [10, 20, 30, 40]:
+            for n_transitions in [2, 4, 10]:
+                pl = {"dataset_size": dataset_size,
+                      "max_n_states": max_n_states,
+                      "n_transitions": n_transitions,
+                      "problems": 4, "end_p": 0.2}
+
+                name_file = f"{dataset_size}_{max_n_states}_{n_transitions}"
+                compare_passive_algorithms(pl, save=save, name_file=name_file)
+
 """ Compare diferenst algoritms solving the same problems. The problems to solve are in problem_list, if problem_list is None solve all the problems 
     and if problem_list is an integer number solve amount of random problems expressed by the number """
-def measure_automata_performance_in_functions(problem_list=None, save=False):
+def compare_passive_algorithms(problem_list=None, save=False, name_file=""):
     problems = get_problems(problem_list)
     algorithms = get_algorithms()
 
@@ -65,7 +78,7 @@ def measure_automata_performance_in_functions(problem_list=None, save=False):
         test_xs, test_ys = sample_dataset(p.f, p.alphabet, pr, le)
         xs = xs + p.xs
         ys = ys + p.ys
-        print(f"\nProblem{p.description}")
+        print(f"\nProblem {p.description}")
         print(f"    xs: {xs}")
         print(f"    ys: {ys}")
         datasets[p.num] = (xs, ys)
@@ -85,7 +98,9 @@ def measure_automata_performance_in_functions(problem_list=None, save=False):
             print(f"    Train Square Error Sum: {train_errors[a][p.num]}")
             print(f"    Test Square Error Sum: {test_errors[a][p.num]}")
 
-    res = {'automatas': automatas,
+    res = {'name': name_file,
+           'problem_list': problem_list,
+           'automatas': automatas,
            'train_errors': train_errors,
            'test_errors': test_errors,
            'times': times,
@@ -94,16 +109,19 @@ def measure_automata_performance_in_functions(problem_list=None, save=False):
 
     if save:
         date = datetime.now().strftime("%Y-%m-%d %H-%M")
-        save_pickle(res, f'./experiments/pickle_obj/{date}.pkl')
+        if name_file != "":
+            name_file += "_"
 
-        # Save the hyperparameters used in this run
-        save_hyperparameters(f'./experiments/pickle_obj/hyper_{date}.txt')
-        pass
+        # Save the hyperparameters used in this run and results
+        save_pickle(res, f'./experiments/pickle_obj/{name_file}{date}.pkl')
+        save_hyperparameters(f'./experiments/pickle_obj/hyper_{name_file}{date}.txt', problem_list)
+
+        print(f"Saved {name_file}{date}.pkl")
 
     return res
 
 
-def save_hyperparameters(path):
+def save_hyperparameters(path, problem_list):
     d = {"pr": pr,
          "le": le,
          "run_n": run_n,
@@ -114,6 +132,9 @@ def save_hyperparameters(path):
          "learning_rate": learning_rate,
          "b1": b1,
          "b2": b2}
+
+    if type(problem_list) == dict:
+        d.update(problem_list)
 
     with open(path, 'w') as f:
         f.write(str(d))
