@@ -1,12 +1,12 @@
 from src.automatas.automatas import StateAutomata
-from aalpy.learning_algs import run_RPNI
+from aalpy.learning_algs import run_EDSM
 
-class RPNI:
+class EDSM:
 	def __init__(self, learner):
 		self.learner = learner
 		self.alphabet = self.learner.alphabet
 
-	def learn_rpni(self, xs, ys, input_completeness='sink_state', verbose=0):
+	def learn_edsm(self, xs, ys, input_completeness='sink_state', verbose=0):
 		data = []
 		set_alphabet = set(self.alphabet)
 		for x, y in zip(xs, ys):
@@ -17,7 +17,7 @@ class RPNI:
 			else:
 				data.append((tuple(x), y == '1'))
 
-		dfa = run_RPNI(data, automaton_type='dfa', input_completeness=input_completeness, print_info=verbose)
+		dfa = run_EDSM(data, automaton_type='dfa', input_completeness=input_completeness, print_info=verbose)
 		return StateAutomata.dfa_to_automata_state(dfa, self.alphabet)
 
 

@@ -6,8 +6,6 @@ from datetime import datetime
 import time
 import numpy as np
 
-import pickle
-
 # Default parameters
 pr=0.75
 le=10
@@ -46,7 +44,8 @@ def get_problems(problem_list):
     return problems
 
 def get_algorithms():
-    return {'rpni': lambda alp, xs, ys, max_states: AutomataLearner(alp).learn_from_rpni(xs, ys),
+    return {'edsm': lambda alp, xs, ys, max_states: AutomataLearner(alp).learn_from_edsm(xs, ys),
+            'rpni': lambda alp, xs, ys, max_states: AutomataLearner(alp).learn_from_rpni(xs, ys),
             'ktails': lambda alp, xs, ys, max_states: AutomataLearner(alp).learn_from_k_tail(filter_positives(xs, ys), k=None),
             'derivative': lambda alp, xs, ys, max_states: AutomataLearner(alp).derivative_passive_learn(xs, ys, max_states=max_states, concatenate=concatenate, run_n=run_n, entropy_weight=entropy_weight, lazy_bias=lazy_bias, train_step_n=train_step_n, learning_rate=learning_rate, b1=b1, b2=b2)}
 

@@ -1,9 +1,4 @@
-from src.L import LStartLearner
-from src.transducers.transducer_learning import Learner as TransducerLearner
-from src.automatas.automata_learning import Learner as AutomataLearner
-from experiments.performance_automatas import compare_passive_algorithms, run_for_multiple_dfa_types
-from tests.automatas.test_functions import problem1
-
+from experiments.performance_automatas import run_for_multiple_dfa_types
 
 if __name__ == "__main__":
 	#learner = AutomataLearner(['a', 'b'], verbose=0)
