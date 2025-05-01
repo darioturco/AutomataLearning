@@ -29,20 +29,20 @@ class Automata:
 		self.max_state = max_state
 
 
-
+	### Fix entropy_weight (no todos los tipos de automatas pueden devolver una lista de estados)
 	def error_square(self, xs, ys0, entropy_weight=0):
 		error = 0.0
 		for x, y0 in zip(xs, ys0):
-			y, s = self(x)
-			y0 = jnp.array([prepare_str(y0, ['0', '1', self.separate_char])]).transpose(1,0,2)
+			y, s = self.run_fsm([x])
+			y0 = jnp.array([prepare_str(y0, ['0', '1', self.separate_char])])
 			error += jnp.square(y-y0).sum()
-			error += 0.0 if s is None else entropy(s.mean(0)) * entropy_weight
+			#error += 0.0 if s is None else entropy(s.mean(0)) * entropy_weight
 		return error
 
-	def __call__(self, inputs):
+	def __call__(self, x):
 		raise NotImplementedError
 
-	def run_fsm(self, x):
+	def run_fsm(self, inputs):
 		raise NotImplementedError
 
 	def to_state_automata(self):
@@ -80,20 +80,21 @@ class TensorAutomata(Automata):
 
 		init_state = jnp.array([s0 for _ in range(inputs.shape[0])])
 		_, (outputs, states) = jax.lax.scan(f, init_state, inputs.transpose((1, 0, 2)))
-		return outputs, jnp.vstack([[init_state], states]).transpose((1,0,2))
-
-	def __call__(self, inputs):
-		inputs = jnp.array([prepare_str(inputs, self.alphabet_ext)])
-		return TensorAutomata.run_fsm_with_values(inputs, self.fsm.A, self.fsm.T, self.fsm.s0)
+		return outputs.transpose(1, 0, 2), jnp.vstack([[init_state], states]).transpose((1,0,2))
 
 	""" Returns the string corresponding to x """
-	def run_fsm(self, x):
-		y, _ = self(x)
+	def __call__(self, x):
+		y, _ = self.run_fsm([x])
 		return decode_str(y, ['0', '1', self.separate_char])
 
-	""" Return True if acept the string False if it doesn't """
+	def run_fsm(self, inputs):
+		inputs = jnp.array([prepare_str(x, self.alphabet_ext) for x in inputs])
+		return TensorAutomata.run_fsm_with_values(inputs, self.fsm.A, self.fsm.T, self.fsm.s0)
+
+	""" Return True if accept the string False if it doesn't """
 	def accept(self, x):
-		return self.run_fsm(x)[-1] == '1'
+		y = self(x)
+		return y[-1] == '1'
 
 	def __repr__(self):
 		return f"""
@@ -164,14 +165,15 @@ class FunctionAutomata(Automata):
 		self.f = f
 		super().__init__(alphabet, max_states)	### Ver que hacer con ese max_states=8
 
-	def __call__(self, inputs):
-		return self.f(inputs), None
-
 	def __repr__(self):
 		return self.__repr__()
 
-	def run_fsm(self, x):
-		return "".join(['1' if x[:i] else '0' for i in range(len(x)+1)])
+	def __call__(self, x):
+		return ["1" if self.accept(x[:i]) else '0' for i in range(1, len(x)+1)]
+
+	def run_fsm(self, inputs):
+		tensor_y = [self(i) for i in inputs]
+		return jnp.array([prepare_str("".join(ty), ['0', '1', self.separate_char]) for ty in tensor_y]), None
 
 	def accept(self, x):
 		return self.f(x)
@@ -194,22 +196,9 @@ class StateAutomata(Automata):
 	def all_positive_automata(alphabet):
 		return StateAutomata([0], {0: [(a, 0) for a in alphabet]}, [0], 0, alphabet)
 
-	""" Genera un NFA con n estados con nt transiciones por cada estado, donde las transiciones
-	   son aleatoreas y hay probabilidad end_p de que un estado sea final """
-
 	@classmethod
 	def dfa_to_automata_state(cls, dfa, alphabet):
 		state_setup = dfa.to_state_setup()
-		"""
-        {
-            "a": (True, {"x": "b1", "y": "a"}),
-            "b1": (False, {"x": "b2", "y": "a"}),
-            "b2": (True, {"x": "b3", "y": "a"}),
-            "b3": (False, {"x": "b4", "y": "a"}),
-            "b4": (False, {"x": "c", "y": "a"}),
-            "c": (True, {"x": "a", "y": "a"}),
-        }
-        """
 		state_dict = {k: i for i, k in enumerate(state_setup.keys())}
 		states = list(state_dict.values())
 		edges_dict = {s: [] for s in states}
@@ -220,26 +209,35 @@ class StateAutomata(Automata):
 		accepting_states = [state_dict[k] for k, v in state_setup.items() if v[0]]
 		return cls(states, edges_dict, accepting_states, state_dict[dfa.initial_state.state_id], alphabet)
 
+	""" Genera un DFA con n estados con nt transiciones por cada estado, donde las transiciones
+		   son aleatoreas y hay probabilidad end_p de que un estado sea final """
 	@classmethod
-	def generate_random_nfa(cls, alphabet, n, nt, end_p):
+	def generate_random_dfa(cls, alphabet, n, nt, end_p):
 		states = [i for i in range(n)]
+
+		t_per_state = min(nt, len(states), len(alphabet))
+		edges_dict = {s1: [(a, s2) for a, s2 in zip(random.sample(alphabet, k=t_per_state), random.sample(states, k=t_per_state))] for s1 in states}
 		accepting_states = [s for s in states if random.random() < end_p]
-		edges_dict = {s1: [(random.choice(alphabet), s2) for s2 in random.sample(states, k=min(nt, len(states)))] for s1
-					  in states}
+		if len(accepting_states) == 0:
+			accepting_states.append(random.choice(states))
 		return cls(states, edges_dict, accepting_states, 0, alphabet)
 
 	def __init__(self, states, edges, accepting_states, initial_state, alphabet):
-		super().__init__(alphabet, len(states))
+		super().__init__(alphabet, len(states)+1)
 		self.states = list(set(states))
 		self.edges = edges					# {s1: [(i, s_i), ...], s2:...}
 		self.accepting_states = accepting_states
 		self.initial_state = initial_state
+		self.trap_state = -1
 
 	# Return the new state before consume 'input_' in the state 'state'
 	### Cambiarle el nombre
 	def get_edge(self, state, input_):
 		if state not in self.edges:
 			return None
+		if state == self.trap_state:
+			return self.trap_state
+
 		for (i, s) in self.edges[state]:
 			if input_ == i:
 				return s
@@ -247,22 +245,33 @@ class StateAutomata(Automata):
 		return None
 
 
-	def __call__(self, inputs):
-		states = [self.initial_state]
-		for i in inputs:
-			state = self.get_edge(states[-1], i)	# [(i, s), ...]
+	def __call__(self, x):
+		return "".join(['1' if s in self.accepting_states else '0' for s in self.run_fsm([x])[1][0][1:]])
 
-			### Falta chequear if it None
-			states.append(state)
-			
-		return states[-1] in self.accepting_states, None
+	def run_fsm(self, inputs):
+		res = []
+		states_res = []
 
-	### FIX
-	def run_fsm(self, x):
-		return self(x)[0]
+		for x in inputs:
+			states = [self.initial_state]
+			acceptors = []
+			for i in x:
+				state = self.get_edge(states[-1], i)  # [(i, s), ...]
+
+				if state is None:
+					state = self.trap_state
+
+				states.append(state)
+				acceptors.append('1' if state in self.accepting_states else '0')
+
+			res.append(prepare_str("".join(acceptors), ['0', '1', self.separate_char]))
+			states_res.append(states.copy())
+
+		return jnp.array(res), states_res
 
 	def accept(self, x):
-		return self(x)[0]
+		y = self(x)
+		return y[-1] == '1'
 
 	def to_nx_digraph(self):
 		G = nx.DiGraph()
@@ -293,11 +302,11 @@ Initial State: {self.initial_state}
 	def print(self):
 		print(self)
 
-	def show(self, view=True, verbose=0):
+	def show(self, view=True, name="Automata", verbose=0):
 		if verbose:
 			self.print()
 
-		graph = graphviz.Digraph('Automata')
+		graph = graphviz.Digraph(name)
 		for i, s in enumerate(self.states):
 			shape = 'doublecircle' if s == self.initial_state else 'circle'
 			color = 'green' if s in self.accepting_states else 'white'

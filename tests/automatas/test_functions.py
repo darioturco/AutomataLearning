@@ -3,7 +3,7 @@ from src.automatas.automatas import FunctionAutomata
 
 class Problem:
     def __init__(self, automata, xs, description, num):
-        self.f = automata.run_fsm
+        self.f = automata.accept
         self.target_automata = automata
         self.alphabet = automata.alphabet
         self.max_states = automata.max_state

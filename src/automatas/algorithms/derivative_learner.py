@@ -12,7 +12,7 @@ def loss_f(params, x, y0, entropy_weight, hard=False):
 	T, A, s0 = decode_fsm(params, hard=hard)
 	fsm = FSM(T, A, s0)
 	y, s = TensorAutomata.run_fsm_with_values(x, fsm.A, fsm.T, fsm.s0)
-	y = y.transpose(1,0,2)
+	#y = y.transpose(1,0,2)
 	error = jnp.square(y - y0).sum()
 	entropy_loss = entropy(s.mean(0)) * entropy_weight
 	total = error + entropy_loss

@@ -9,7 +9,7 @@ import numpy as np
 # Default parameters
 pr=0.75
 le=10
-run_n=1000
+run_n=900
 concatenate=False
 entropy_weight=0
 lazy_bias=1.0
@@ -32,9 +32,9 @@ def get_problems(problem_list):
         n_transitions = problem_list["n_transitions"]
         problems = []
         for i in range(problems_n):
-            nfa = StateAutomata.generate_random_nfa(['a', 'b'], max_n_states, n_transitions, end_p)
-            xs, _ = sample_dataset(nfa.run_fsm, nfa.alphabet, pr, dataset_size)
-            problems.append(Problem(nfa, xs, f"NFA {i}", i))
+            nfa = StateAutomata.generate_random_dfa(['a', 'b'], max_n_states, n_transitions, end_p)
+            xs, _ = sample_dataset(nfa.accept, nfa.alphabet, pr, dataset_size)
+            problems.append(Problem(nfa, xs, f"DFA {i}", i))
 
     elif len(problem_list) == 0:
         problems = all_problems
@@ -50,18 +50,19 @@ def get_algorithms():
             'derivative': lambda alp, xs, ys, max_states: AutomataLearner(alp).derivative_passive_learn(xs, ys, max_states=max_states, concatenate=concatenate, run_n=run_n, entropy_weight=entropy_weight, lazy_bias=lazy_bias, train_step_n=train_step_n, learning_rate=learning_rate, b1=b1, b2=b2)}
 
 def run_for_multiple_dfa_types(save=False):
-    for dataset_size in [10, 25, 50, 100, 250]:
-        for max_n_states in [10, 20, 30, 40]:
-            for n_transitions in [2, 4, 10]:
+    for dataset_size in [10, 25, 50, 100]:
+        for max_n_states in [10, 20, 30, 40, 50]:
+            for n_transitions in [2, 5, 10, 15]:
                 pl = {"dataset_size": dataset_size,
                       "max_n_states": max_n_states,
                       "n_transitions": n_transitions,
-                      "problems": 4, "end_p": 0.2}
+                      "problems": 3, "end_p": 0.2}
 
                 name_file = f"{dataset_size}_{max_n_states}_{n_transitions}"
+                print(f"Running algorithms with dataset_size: {dataset_size} - max_n_states {max_n_states} - n_transitions: {n_transitions}")
                 compare_passive_algorithms(pl, save=save, name_file=name_file)
 
-""" Compare diferenst algoritms solving the same problems. The problems to solve are in problem_list, if problem_list is None solve all the problems 
+""" Compare diferents algorithms solving the same problems. The problems to solve are in problem_list, if problem_list is None solve all the problems 
     and if problem_list is an integer number solve amount of random problems expressed by the number """
 def compare_passive_algorithms(problem_list=None, save=False, name_file=""):
     problems = get_problems(problem_list)

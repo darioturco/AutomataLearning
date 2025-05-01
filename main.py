@@ -1,10 +1,11 @@
 from experiments.performance_automatas import run_for_multiple_dfa_types
+from src.automatas.automata_learning import Learner as AutomataLearner
 
 if __name__ == "__main__":
 	#learner = AutomataLearner(['a', 'b'], verbose=0)
 	#xs = ['abbbab', 'ababa', 'aaaaaa', 'aa', 'ababbbbabb']
 	#ys = ['010101', '01010', '010101', '01', '0101010101']
-	#automata = learner.derivative_passive_learn(xs, ys, max_states=4, concatenate=False, run_n=256)
+	#automata = learner.derivative_passive_learn(xs, ys, max_states=4, concatenate=False, run_n=100)
 	#print(f"    Square Error Sum: {automata.error_square(xs, ys)}\n")
 	#automata_s = automata.to_state_automata()
 	#automata_s.print()
