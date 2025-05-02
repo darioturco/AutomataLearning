@@ -1,5 +1,4 @@
 from functools import partial
-import random
 import jax
 import jax.numpy as jnp
 import optax
@@ -12,7 +11,6 @@ def loss_f(params, x, y0, entropy_weight, hard=False):
 	T, A, s0 = decode_fsm(params, hard=hard)
 	fsm = FSM(T, A, s0)
 	y, s = TensorAutomata.run_fsm_with_values(x, fsm.A, fsm.T, fsm.s0)
-	#y = y.transpose(1,0,2)
 	error = jnp.square(y - y0).sum()
 	entropy_loss = entropy(s.mean(0)) * entropy_weight
 	total = error + entropy_loss
@@ -44,7 +42,6 @@ class DerivativeLearner:
 		params, opt_state = train_state
 		grad_f = jax.grad(self.loss_f, has_aux=True)
 		grads, stats = grad_f(params)
-
 		updates, opt_state = self.optimizer.update(grads, opt_state)
 		params = optax.apply_updates(params, updates)
 		return TrainState(params, opt_state), stats
@@ -72,11 +69,11 @@ class DerivativeLearner:
 		return Params(T, A, s0)
 
 	@staticmethod
-	def contain_query(self, x, target_automata):
+	def contain_query(x, target_automata):
 		return target_automata(x)
 
 	@staticmethod
-	def equivalence_query(self, automata, target_automata, t, p=0.7):
+	def equivalence_query(automata, target_automata, t, p=0.7):
 		to_test = []
 		for _ in range(t):
 			test = probabilistic_sample(target_automata.alphabet, p=p)
@@ -96,8 +93,8 @@ class DerivativeLearner:
 		alphabet_in = self.alphabet_ext
 		alphabet_out = ['0', '1'] + [self.separate_char]
 		if concatenate:
-			xs = jnp.array([prepare_str(x_, alphabet_in) for x_ in x])
-			ys = jnp.array([prepare_str(y_, alphabet_out) for y_ in y])
+			xs = jnp.array([prepare_str(x_, alphabet_in) for x_ in ["".join([x_ + self.separate_char for x_ in x])]])
+			ys = jnp.array([prepare_str(y_, alphabet_out) for y_ in ["".join([y_ + self.separate_char for y_ in y])]])
 		else:
 			max_len = max([len(x_) for x_ in x])
 			xs = jnp.array([prepare_str(x_, alphabet_in, padding=max_len-len(x_)) for x_ in x])
@@ -115,7 +112,7 @@ class DerivativeLearner:
 		return "".join(self.xs), "".join(self.ys)
 
 	def learn(self, target_automata, budget, t, p, concatenate=False):
-		assert target_automata.alphabet == self.alphabet, "Error, alphabet should have the same length."
+		assert target_automata.alphabet == self.alphabet, "Error, alphabet should be the same."
 
 		self.target_automata = target_automata
 		self.xs = [probabilistic_sample(self.target_automata.alphabet, t, p)]
@@ -145,14 +142,9 @@ class DerivativeLearner:
 		return automata
 
 	def learn_from_dataset(self, xs, ys, concatenate=False):
-		assert len(xs) == len(ys), "Error"
+		assert len(xs) == len(ys), "Error, inputs and outputs must have the same length."
 
 		keys = self.generate_keys(self.run_n)
-		if concatenate:
-			xs = ["".join([x + self.separate_char for x in xs])]
-			ys = ["".join([y + self.separate_char for y in ys])]
-
 		T, A, s0 = self.train_fsm(keys, xs, ys, concatenate)
-
 		return TensorAutomata(T, A, s0, self.alphabet, self.max_states)
 

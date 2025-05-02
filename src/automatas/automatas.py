@@ -1,12 +1,9 @@
 from collections import namedtuple
 import graphviz
 import networkx as nx
-import matplotlib.pyplot as plt
 import random
 import jax
 import jax.numpy as jnp
-from graphviz import Source
-
 from src.utils import decode_fsm, entropy, prepare_str, get_separate_char, decode_str, cartesian_product
 
 FSM = namedtuple('FSM', 'T A s0')
@@ -14,11 +11,6 @@ Params = namedtuple('Params', 'T A s0')
 Stats = namedtuple('Stats', 'total error entropy states_used')
 TrainState = namedtuple('TrainState', 'params opt_state')
 TrainResult = namedtuple('TrainResult', 'params eval logs')
-
-### Hay que revisar esto:
-###  __call__ tiene que devolver (lista de outputs, lista de estados)
-### run_fsm tiene que devolver un solo booleano
-### despues hay que swapear estas dos funciones
 
 class Automata:
 	def __init__(self, alphabet, max_state):

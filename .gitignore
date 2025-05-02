@@ -1,7 +1,11 @@
 **/__pycache__
 **/plots
 **/pickle
+**/pickle_obj
 **/graphs
 .idea
 *.gv
 *.gv.pdf
+**/datasets
+**.pdf
+experiments/aalpy_test.ipynb
