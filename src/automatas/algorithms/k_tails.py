@@ -14,8 +14,8 @@ class KTail:
 
 	def equivalent_next(self, q1, q2, automata, equivalences):
 		for a in self.alphabet:
-			new_q1 = automata.get_edge(q1, a)
-			new_q2 = automata.get_edge(q2, a)
+			new_q1 = automata.next_state(q1, a)
+			new_q2 = automata.next_state(q2, a)
 			if not self.equivalent(new_q1, new_q2, equivalences):
 				return False
 
@@ -52,7 +52,7 @@ class KTail:
 		### Check if the new states are well merged (if the transition are deleted or overwhiten)
 		# Check if merge would create nondeterminism
 		for symbol, target in automaton.edges[state2]:
-			s = automaton.get_edge(state1, symbol)
+			s = automaton.next_state(state1, symbol)
 			if s is not None and s != target:
 				return False
 
@@ -64,7 +64,7 @@ class KTail:
 
 		# Copy transitions from state2 to state1
 		for symbol, target in automaton.edges[state2]:
-			s = automaton.get_edge(state1, symbol)
+			s = automaton.next_state(state1, symbol)
 			if s is None:
 				automaton.add_transition(state1, symbol, target)
 
@@ -82,7 +82,7 @@ class KTail:
 		for seq in positives + negatives:
 			current_state = automaton.initial_state
 			for c in seq:
-				s = automaton.get_edge(current_state, c)
+				s = automaton.next_state(current_state, c)
 				if s is None:
 					new_state = state_counter
 					state_counter += 1

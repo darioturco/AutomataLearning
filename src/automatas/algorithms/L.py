@@ -8,15 +8,12 @@ from aalpy.base import SUL
 class WrapperSUL(SUL):
     def __init__(self, target_dfa):
         super().__init__()
-        self.target_dfa = target_dfa
+        self.target_dfa = target_dfa.to_state_automata()
 
     def step(self, letter):
-        ### Ningun tipo de automata tiene implementada la funcion step
-        ### Crear un automata de un nuevo tipo o hacer que StateAutomata guarde el estado actual y tenga step (luego convertir cualquier tipo de automata a SatateAutomata)
         return self.target_dfa.step(letter)
     
     def reset(self):
-        ### Implementar funcion de reset en nuestra implemntacion de StateAutomata
         return self.target_dfa.reset()
 
 # Algorthm from "Learning regular sets from queries and counterexamples"

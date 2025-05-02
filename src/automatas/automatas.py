@@ -229,10 +229,10 @@ class StateAutomata(Automata):
 		self.accepting_states = accepting_states
 		self.initial_state = initial_state
 		self.trap_state = -1
+		self.actual_state = self.initial_state
 
-	# Return the new state before consume 'input_' in the state 'state'
-	### Cambiarle el nombre
-	def get_edge(self, state, input_):
+	# Return the new state before consume 'input_' in some 'state'
+	def next_state(self, state, input_):
 		if state not in self.edges:
 			return None
 		if state == self.trap_state:
@@ -243,7 +243,6 @@ class StateAutomata(Automata):
 				return s
 			
 		return None
-
 
 	def __call__(self, x):
 		return "".join(['1' if s in self.accepting_states else '0' for s in self.run_fsm([x])[1][0][1:]])
@@ -256,7 +255,7 @@ class StateAutomata(Automata):
 			states = [self.initial_state]
 			acceptors = []
 			for i in x:
-				state = self.get_edge(states[-1], i)  # [(i, s), ...]
+				state = self.next_state(states[-1], i)  # [(i, s), ...]
 
 				if state is None:
 					state = self.trap_state
@@ -364,5 +363,15 @@ Initial State: {self.initial_state}
 
 		if state in self.accepting_states:
 			self.accepting_states.remove(state)
+
+	def step(self, x):
+		new_state = self.next_state(self.actual_state, x)
+		if new_state is None:
+			new_state = self.trap_state
+		self.actual_state = new_state
+		return new_state
+
+	def reset(self):
+		self.actual_state = self.initial_state
 
 

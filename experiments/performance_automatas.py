@@ -18,7 +18,6 @@ learning_rate=0.05
 b1=0.4
 b2=0.4
 
-
 def filter_positives(xs, ys):
     return [x for x, y in zip(xs, ys) if len(y) > 0 and y[-1] == '1']
 def get_problems(problem_list):
@@ -50,9 +49,10 @@ def get_algorithms():
             'derivative': lambda alp, xs, ys, max_states: AutomataLearner(alp).derivative_passive_learn(xs, ys, max_states=max_states, concatenate=concatenate, run_n=run_n, entropy_weight=entropy_weight, lazy_bias=lazy_bias, train_step_n=train_step_n, learning_rate=learning_rate, b1=b1, b2=b2)}
 
 def run_for_multiple_dfa_types(save=False):
-    for dataset_size in [10, 25, 50, 100]:
-        for max_n_states in [10, 20, 30, 40, 50]:
-            for n_transitions in [2, 5, 10, 15]:
+    #for dataset_size in [10, 25, 50, 100]: # Con 10 ya esta
+    for dataset_size in [25, 50, 100]:
+        for max_n_states in [10, 20, 30, 40]:   # Con 50 tarda mucho
+            for n_transitions in [2, 5, 9, 15]:
                 pl = {"dataset_size": dataset_size,
                       "max_n_states": max_n_states,
                       "n_transitions": n_transitions,
