@@ -40,7 +40,7 @@ class Automata:
 	def to_state_automata(self):
 		raise NotImplementedError
 
-	# Transducer Operations
+	# Automata Operations
 	def union(self, transducer):
 		raise NotImplementedError
 
@@ -67,7 +67,6 @@ class TensorAutomata(Automata):
 		def f(s, x):
 			s1 = jnp.einsum('ix,is,xst->it', x, s, T)
 			y  = jnp.einsum('is,sy->iy', s1, A)
-
 			return s1, (y, s1)
 
 		init_state = jnp.array([s0 for _ in range(inputs.shape[0])])
@@ -92,8 +91,7 @@ class TensorAutomata(Automata):
 		return f"""
 T = {self.fsm.T.shape}
 R = {self.fsm.A.shape}
-Initial State = {self.fsm.s0.shape}
-		"""
+Initial State = {self.fsm.s0.shape}"""
 
 	def print(self):
 		print(self.__repr__())
@@ -155,7 +153,7 @@ Initial State = {self.fsm.s0.shape}
 class FunctionAutomata(Automata):
 	def __init__(self, f, alphabet, max_states=8):
 		self.f = f
-		super().__init__(alphabet, max_states)	### Ver que hacer con ese max_states=8
+		super().__init__(alphabet, max_states)
 
 	def __repr__(self):
 		return self.__repr__()
@@ -164,14 +162,14 @@ class FunctionAutomata(Automata):
 		return ["1" if self.accept(x[:i]) else '0' for i in range(1, len(x)+1)]
 
 	def run_fsm(self, inputs):
-		tensor_y = [self(i) for i in inputs]
-		return jnp.array([prepare_str("".join(ty), ['0', '1', self.separate_char]) for ty in tensor_y]), None
+		outputs = [self(x) for x in inputs]
+		return jnp.array([prepare_str("".join(y), ['0', '1', self.separate_char]) for y in outputs]), None
 
 	def accept(self, x):
 		return self.f(x)
 	
 	def print(self):
-		raise NotImplementedError
+		print(self.__repr__())
 	
 	def show(self, path=None, title="", node_size=500, verbose=0):
 		raise NotImplementedError
@@ -201,8 +199,8 @@ class StateAutomata(Automata):
 		accepting_states = [state_dict[k] for k, v in state_setup.items() if v[0]]
 		return cls(states, edges_dict, accepting_states, state_dict[dfa.initial_state.state_id], alphabet)
 
-	""" Genera un DFA con n estados con nt transiciones por cada estado, donde las transiciones
-		   son aleatoreas y hay probabilidad end_p de que un estado sea final """
+	""" Generate a DFA with n states and nt transition by each state, the transitions are random 
+		and probability end_p that a state is a final state"""
 	@classmethod
 	def generate_random_dfa(cls, alphabet, n, nt, end_p):
 		states = [i for i in range(n)]
@@ -245,17 +243,16 @@ class StateAutomata(Automata):
 
 		for x in inputs:
 			states = [self.initial_state]
-			acceptors = []
+			acceptors = ""
 			for i in x:
 				state = self.next_state(states[-1], i)  # [(i, s), ...]
-
 				if state is None:
 					state = self.trap_state
 
 				states.append(state)
-				acceptors.append('1' if state in self.accepting_states else '0')
+				acceptors += '1' if state in self.accepting_states else '0'
 
-			res.append(prepare_str("".join(acceptors), ['0', '1', self.separate_char]))
+			res.append(prepare_str(acceptors, ['0', '1', self.separate_char]))
 			states_res.append(states.copy())
 
 		return jnp.array(res), states_res
@@ -264,31 +261,12 @@ class StateAutomata(Automata):
 		y = self(x)
 		return y[-1] == '1'
 
-	def to_nx_digraph(self):
-		G = nx.DiGraph()
-
-		edges_dict = {}
-		for s1, edges in self.edges.items():
-			for i, s2 in edges:
-				if (s1, s2) in edges_dict:
-					edges_dict[(s1, s2)].append(f"\n{i}")
-				else:
-					edges_dict[(s1, s2)] = [f"{i}"]
-
-		for (s1, s2), edge in edges_dict.items():
-			G.add_node(s1)
-			G.add_node(s2)
-			G.add_edge(s1, s2, label="".join(edge))
-
-		return G, G.nodes, edges_dict
-
 	def __repr__(self):
 		return f"""
 States: {self.states}
 Edges: {self.edges}
 Accepting Sates: {self.accepting_states}
-Initial State: {self.initial_state}
-		"""
+Initial State: {self.initial_state}"""
 
 	def print(self):
 		print(self)
@@ -316,13 +294,14 @@ Initial State: {self.initial_state}
 
 	def add_state(self, state):
 		self.states = list(set(self.states + [state]))
-		self.edges[state] = []
+		if state not in self.edges:
+			self.edges[state] = []
 
 	def add_transition(self, s1, c, s2):
 		# assert s1 in self.states and s2 in self.states and c in self.alphabet ### Revisar
 
 		if s1 not in self.edges:
-			self.edges[s1] = []
+			self.add_state(s1)
 
 		### Check that the edges is not present yet
 		self.edges[s1].append((c, s2))

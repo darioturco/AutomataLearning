@@ -50,7 +50,7 @@ def get_algorithms():
 
 def run_for_multiple_dfa_types(save=False):
     #for dataset_size in [10, 25, 50, 100]: # Con 10 ya esta
-    for dataset_size in [25, 50, 100]:
+    for dataset_size in [50, 100]:
         for max_n_states in [10, 20, 30, 40]:   # Con 50 tarda mucho
             for n_transitions in [2, 5, 9, 15]:
                 pl = {"dataset_size": dataset_size,
