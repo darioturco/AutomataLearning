@@ -62,16 +62,16 @@ class TensorAutomata(Automata):
 	@staticmethod
 	def run_fsm_with_values(inputs, A, T, s0):
 		# x.shape = [len(xs), len(alphabet)]
-		# T.shape = [len(alphabet), len(states), len(states)]
 		# A.shape = [len(alphabet), len(states)]
+		# T.shape = [len(alphabet), len(states), len(states)]
 		def f(s, x):
 			s1 = jnp.einsum('ix,is,xst->it', x, s, T)
 			y  = jnp.einsum('is,sy->iy', s1, A)
 			return s1, (y, s1)
 
-		init_state = jnp.array([s0 for _ in range(inputs.shape[0])])
-		_, (outputs, states) = jax.lax.scan(f, init_state, inputs.transpose((1, 0, 2)))
-		return outputs.transpose(1, 0, 2), jnp.vstack([[init_state], states]).transpose((1,0,2))
+		init_states = jnp.array([s0 for _ in range(inputs.shape[0])])
+		_, (outputs, states) = jax.lax.scan(f, init_states, inputs.transpose((1, 0, 2)))
+		return outputs.transpose(1, 0, 2), jnp.vstack([[init_states], states]).transpose((1,0,2))
 
 	""" Returns the string corresponding to x """
 	def __call__(self, x):

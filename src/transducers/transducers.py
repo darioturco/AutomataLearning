@@ -1,5 +1,6 @@
 from collections import namedtuple
 import graphviz
+import networkx as nx
 import jax
 import jax.numpy as jnp
 from src.utils import entropy, prepare_str, get_separate_char, decode_str, cartesian_product
@@ -56,14 +57,18 @@ class TensorTransducer(Transducer):
 
 	@staticmethod
 	def run_fsm_with_values(inputs, R, T, s0):
+		# x.shape = []
+		# R.shape = []
+		# T.shape = []
 		def f(s, x):
-			y  = jnp.einsum('x,s,xsy->y', x, s, R)
-			s1 = jnp.einsum('x,s,xst->t', x, s, T)
+			s1 = jnp.einsum('ix,is,xst->it', x, s, T)
+			y  = jnp.einsum('ix,is,xsy->iy', x, s, R)
+
 			return s1, (y, s1)
 
-		_, (outputs, states) = jax.lax.scan(f, s0, inputs)
-		#jax.debug.print("🤯 {outputs} 🤯", outputs=outputs)
-		return outputs, jnp.vstack([s0, states])
+		init_states = jnp.array([s0 for _ in range(inputs.shape[0])])
+		_, (outputs, states) = jax.lax.scan(f, init_states, inputs.transpose((1,0,2)))
+		return outputs.transpose((1,0,2)), jnp.vstack([[init_states], states]).transpose((1,0,2))
 
 	""" Returns the string corresponding to x """
 	def __call__(self, x):
@@ -97,7 +102,35 @@ Initial State = {self.fsm.s0.shape}"""
 
 	### Completar
 	def to_nx_digraph(self):
-		pass
+		edges_dict = {}	# [(s1, s2): ["i1/o1", "\ni2/o2"...]]
+		for s_ in range(self.max_state):
+			for i, c in enumerate(self.alphabet_in):
+				new_s = int(jnp.einsum('x,s,xst->t', jnp.eye(1, self.char_n_in, i)[0], jnp.eye(1, self.max_state, s_)[0], self.fsm.T).argmax())
+				output_index = int(jnp.einsum('x,s,xsy->y', jnp.eye(1, self.char_n_in, i)[0], jnp.eye(1, self.max_state, s_)[0],self.fsm.R).argmax())
+				o = self.alphabet_out[output_index]
+				if (s_, new_s) in edges_dict:
+					edges_dict[(s_, new_s)].append(f"\n{c}/{o}")
+				else:
+					edges_dict[(s_, new_s)] = [f"{c}/{o}"]
+
+		# Create a directed graph
+		G = nx.DiGraph()
+
+		initial_state = int(jnp.argmax(self.fsm.s0))
+		for (s1, s2), edge in edges_dict.items():
+			G.add_node(s1)
+			G.add_node(s2)
+			G.add_edge(s1, s2, label="".join(edge))
+
+		# Removes the not reachable nodes
+		dfs = nx.dfs_preorder_nodes(G, initial_state)
+		nodes_dfs = {n for n in dfs}
+		nodes = [n for n in G.nodes]
+		for n in nodes:
+			if n not in nodes_dfs:
+				G.remove_node(n)
+
+		return G, G.nodes, edges_dict
 
 	### Revisar
 	def to_state_transducer(self):
@@ -225,7 +258,7 @@ Initial State: {self.initial_state}"""
 		graph = graphviz.Digraph(name)
 		for i, s in enumerate(self.states):
 			shape = 'doublecircle' if s == self.initial_state else 'circle'
-			graph.node(str(s), shape=shape, color='black', style='filled')
+			graph.node(str(s), shape=shape, color='black',  fillcolor="white", style='filled')
 
 		for s1, xs in self.edges.items():
 			for c, s2, o in xs:

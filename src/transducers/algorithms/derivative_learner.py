@@ -21,7 +21,7 @@ def loss_f(params, x, y0, entropy_weight, hard=False):
 
 
 class DerivativeLearner:
-	def __init__(self, max_states, alphabet_in, alphabet_out, entropy_weight=0, lazy_bias=1.0, train_step_n=1000, run_n=1000, learning_rate=0.25, b1=0.5, b2=0.5, verbose=0):
+	def __init__(self, alphabet_in, alphabet_out, max_states, entropy_weight=0, lazy_bias=1.0, train_step_n=1000, run_n=1000, learning_rate=0.25, b1=0.5, b2=0.5, verbose=0):
 		self.target_transducer = None
 		self.separate_char = None
 		self.max_length_sec = 10 ### Eliminar esta variable porque se usa probabilistic sample
@@ -116,7 +116,7 @@ class DerivativeLearner:
 		return "".join(self.xs), "".join(self.ys)
 
 	### Corregiur (tiene que quedar igual que los automatas)
-	def learn(self, target_transducer, budget, run_n=1000, verbose=0):
+	def learn(self, target_transducer, budget, t, p, concatenate=False):
 		assert target_transducer.alphabet_in == self.alphabet_in, "Error, input alphabet should be the same."
 		assert target_transducer.alphabet_out == self.alphabet_out, "Error, output alphabet should be the same."
 
@@ -126,12 +126,12 @@ class DerivativeLearner:
 
 		transducer = None
 		for i in range(budget):
-			keys = self.generate_keys(run_n)
+			keys = self.generate_keys(self.run_n)
 			x_test, y_test = self.generate_xy()
 			T, R, s0 = self.train_fsm(keys, x_test, y_test)
 			transducer = TensorTransducer(T, R, s0, self.alphabet_in, self.alphabet_out, self.max_states)
 
-			if verbose:
+			if self.verbose:
 				print(f"Iteration: {i}")
 				print(f"xs: {x_test}")
 				print(f"ys: {y_test}")
