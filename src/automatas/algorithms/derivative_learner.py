@@ -3,21 +3,25 @@ import random
 import jax
 import jax.numpy as jnp
 import optax
+import math
 
 from src.utils import decode_fsm, entropy, prepare_str, get_separate_char, decode_str, probabilistic_sample
 from src.automatas.automatas import TensorAutomata, FunctionAutomata, StateAutomata, FSM, Params, Stats, TrainState, TrainResult
 
 
 def loss_f(params, x, y0, entropy_weight, hard=False):
+
 	T, A, s0 = decode_fsm(params, hard=hard)
 	fsm = FSM(T, A, s0)
 	y, s = TensorAutomata.run_fsm_with_values(x, fsm.A, fsm.T, fsm.s0)
-	#y = y.transpose(1,0,2)
+
 	error = jnp.square(y - y0).sum()
-	entropy_loss = entropy(s.mean(0)) * entropy_weight
-	total = error + entropy_loss
+	#entropy_loss = entropy(s.mean(0)) * entropy_weight
+	#total = error + entropy_loss
 	states_used = s.max(0).sum()
-	return total, Stats(total=total, error=error, entropy=entropy_loss, states_used=states_used)
+	return error, Stats(total=error, error=error, entropy=0.0, states_used=states_used)
+
+
 
 class DerivativeLearner:
 	def __init__(self, alphabet, max_states, entropy_weight=0, lazy_bias=1.0, train_step_n=1000, run_n=1000, learning_rate=0.25, b1=0.5, b2=0.5, verbose=0):
@@ -32,21 +36,27 @@ class DerivativeLearner:
 		self.alphabet = alphabet
 		self.separate_char = get_separate_char(self.alphabet + ['0', '1'])
 		self.alphabet_ext = alphabet + [self.separate_char]
-		self.entropy_weight = entropy_weight
+		self.entropy_weight = entropy_weight	### Eliminar este parametro de m****
 		self.lazy_bias = lazy_bias
 		self.train_step_n = train_step_n
 		self.run_n = run_n
 		self.optimizer = optax.adam(learning_rate, b1, b2)
 		self.verbose = verbose
 		self.loss_f = None
+		self.total_loss_f = None
+
+		self.batch_size = 2		# Agregarlo como parametro
+
 	@partial(jax.jit, static_argnums=(0,))
 	def train_step(self, train_state):
 		params, opt_state = train_state
-		grad_f = jax.grad(self.loss_f, has_aux=True)
-		grads, stats = grad_f(params)
+		### Fix los stats y ver lo que se pasa con stats
+		for loss_f in self.loss_f:
+			grad_f = jax.grad(loss_f, has_aux=True)
+			grads, stats = grad_f(params)
 
-		updates, opt_state = self.optimizer.update(grads, opt_state)
-		params = optax.apply_updates(params, updates)
+			updates, opt_state = self.optimizer.update(grads, opt_state)
+			params = optax.apply_updates(params, updates)
 		return TrainState(params, opt_state), stats
 
 	def run(self, key):
@@ -59,7 +69,7 @@ class DerivativeLearner:
 			train_state, stats = self.train_step(train_state)
 			logs.append(stats)
 
-		_, evaluation = self.loss_f(train_state.params, hard=True)
+		_, evaluation = self.total_loss_f(train_state.params, hard=True)
 		return TrainResult(train_state.params, evaluation, logs)
 
 
@@ -72,11 +82,11 @@ class DerivativeLearner:
 		return Params(T, A, s0)
 
 	@staticmethod
-	def contain_query(self, x, target_automata):
+	def contain_query(x, target_automata):
 		return target_automata(x)
 
 	@staticmethod
-	def equivalence_query(self, automata, target_automata, t, p=0.7):
+	def equivalence_query(automata, target_automata, t, p=0.7):
 		to_test = []
 		for _ in range(t):
 			test = probabilistic_sample(target_automata.alphabet, p=p)
@@ -93,17 +103,30 @@ class DerivativeLearner:
 
 
 	def train_fsm(self, keys, x, y, concatenate=False):
+		### Shufle the dataset (x, y)
 		alphabet_in = self.alphabet_ext
 		alphabet_out = ['0', '1'] + [self.separate_char]
-		if concatenate:
+		dataset_size = len(x)
+		batchs =  math.ceil((len(x)) / self.batch_size)
+
+
+		if concatenate: ### Fix si se concatena y se usa batch
 			xs = jnp.array([prepare_str(x_, alphabet_in) for x_ in x])
 			ys = jnp.array([prepare_str(y_, alphabet_out) for y_ in y])
 		else:
+			xs = []; ys = []
 			max_len = max([len(x_) for x_ in x])
-			xs = jnp.array([prepare_str(x_, alphabet_in, padding=max_len-len(x_)) for x_ in x])
-			ys = jnp.array([prepare_str(y_, alphabet_out, padding=max_len-len(y_)) for y_ in y])
+			for b in range(batchs):
+				xb = [x_ for x_ in x[b * self.batch_size : (b+1) * self.batch_size]]
+				yb = [y_ for y_ in y[b * self.batch_size : (b+1) * self.batch_size]]
+				xs.append([prepare_str(x_, alphabet_in, padding=max_len - len(x_)) for x_ in xb])
+				ys.append([prepare_str(y_, alphabet_out, padding=max_len - len(y_)) for y_ in yb])
 
-		self.loss_f = partial(loss_f, x=xs, y0=ys, entropy_weight=self.entropy_weight)
+			xs = jnp.array(xs)
+			ys = jnp.array(ys)
+
+		self.loss_f = [partial(loss_f, x=xb, y0=yb, entropy_weight=self.entropy_weight) for xb, yb in zip(xs, ys)]
+		self.total_loss_f = partial(loss_f, x=xs, y0=ys, entropy_weight=self.entropy_weight)
 		self.r = jax.vmap(self.run)(keys)
 		best_i = (self.r.eval.states_used + self.r.eval.error * 10000).argmin()
 		best_params = jax.tree_util.tree_map(lambda a: a[best_i], self.r.params)

@@ -1,6 +1,9 @@
 from experiments.performance_automatas import run_for_multiple_dfa_types
 from src.automatas.automata_learning import Learner as AutomataLearner
 
+from jax.lib import xla_bridge
+print(xla_bridge.get_backend().platform)
+
 if __name__ == "__main__":
 	#learner = AutomataLearner(['a', 'b'], verbose=0)
 	#xs = ['abbbab', 'ababa', 'aaaaaa', 'aa', 'ababbbbabb']
