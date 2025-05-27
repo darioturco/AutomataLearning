@@ -101,6 +101,8 @@ class Learner:
 
   def train_fsm(self, keys, x, y):
     x, y = prepare_str(x, self.alphabet_in_ext), prepare_str(y, self.alphabet_out_ext)
+    dataset_size = len(x)
+    #for b in
     self.loss_f = partial(loss_f, x=x, y0=y, entropy_weight=self.entropy_weight)
     self.r = jax.vmap(self.run)(keys)
     best_i = (self.r.eval.states_used + self.r.eval.error*10000).argmin()

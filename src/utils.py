@@ -1,4 +1,5 @@
 import jax.numpy as jnp
+import numpy as np
 from jax import nn
 import random
 import pickle
@@ -29,6 +30,9 @@ def entropy(p):
 def get_separate_char(alphabet):
   return [c for c in full_alphabet if c not in alphabet][0]
 
+def shuffle_data(x, y):
+  indexes = np.random.permutation(len(x))
+  return np.array(x)[indexes], np.array(y)[indexes]
 
 
 
@@ -84,6 +88,13 @@ def estimate_language_distance(automata1, automata2, mu, alpha, gamma, alphabet)
 
 def cartesian_product(list1, list2):
   return [(i, j) for i in list1 for j in list2]
+
+def check_batch(data):
+  max_size = max([len(d) for d in data])
+  for d in data:
+    extend = max_size - len(d)
+    d += [d[i % len(d)] for i in range(extend)]
+  return jnp.array(data)
 
 def save_pickle(data, path):
   with open(path, "wb") as f:

@@ -1,4 +1,4 @@
-from experiments.performance_automatas import run_for_multiple_dfa_types
+from experiments.performance_automatas import run_for_multiple_dfa_types, uptime_hyperparameters
 from src.automatas.automata_learning import Learner as AutomataLearner
 
 from jax.lib import xla_bridge
@@ -17,7 +17,8 @@ if __name__ == "__main__":
 	#res = compare_passive_algorithms(problem_list={"dataset_size": 100,  "problems": 5, "end_p": 0.2,
 	#											  "max_n_states": 64, "n_transitions": 2}, save=True)
 
-	run_for_multiple_dfa_types(save=True)
+	#run_for_multiple_dfa_types(save=True)
+	uptime_hyperparameters(save=True)
 
 
 
